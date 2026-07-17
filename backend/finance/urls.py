@@ -1,0 +1,55 @@
+from django.urls import path
+
+from .goal_views import (
+    GoalContributeView,
+    GoalPlanDetailView,
+    GoalPlanListCreateView,
+    GoalRemindersView,
+    GoalTemplateListView,
+    GoalWithdrawView,
+)
+from .payment_views import CreateDepositOrderView, RazorpayWebhookView, VerifyDepositView
+from .views import (
+    DepositView,
+    HomeView,
+    InvestmentFaqListView,
+    InvestmentPlanDetailView,
+    InvestmentPlanListView,
+    MyInvestmentDetailView,
+    MyInvestmentsView,
+    PortfolioAllocationsView,
+    PortfolioEarningsView,
+    PortfolioView,
+    SubscribeInvestmentView,
+    TransactionListView,
+    WalletTransactionsView,
+    WalletView,
+    WithdrawView,
+)
+
+urlpatterns = [
+    path('home/', HomeView.as_view(), name='home'),
+    path('investment/plans/', InvestmentPlanListView.as_view(), name='investment-plans'),
+    path('investment/plans/<str:plan_id>/', InvestmentPlanDetailView.as_view(), name='investment-plan-detail'),
+    path('investment/faqs/', InvestmentFaqListView.as_view(), name='investment-faqs'),
+    path('investment/subscribe/', SubscribeInvestmentView.as_view(), name='investment-subscribe'),
+    path('investment/my-investments/', MyInvestmentsView.as_view(), name='my-investments'),
+    path('investment/my-investments/<uuid:investment_id>/', MyInvestmentDetailView.as_view(), name='my-investment-detail'),
+    path('portfolio/', PortfolioView.as_view(), name='portfolio'),
+    path('portfolio/allocations/', PortfolioAllocationsView.as_view(), name='portfolio-allocations'),
+    path('portfolio/earnings/', PortfolioEarningsView.as_view(), name='portfolio-earnings'),
+    path('wallet/', WalletView.as_view(), name='wallet'),
+    path('wallet/transactions/', WalletTransactionsView.as_view(), name='wallet-transactions'),
+    path('wallet/deposit/', DepositView.as_view(), name='wallet-deposit'),
+    path('wallet/deposit/create-order/', CreateDepositOrderView.as_view(), name='wallet-deposit-order'),
+    path('wallet/deposit/verify/', VerifyDepositView.as_view(), name='wallet-deposit-verify'),
+    path('wallet/webhook/razorpay/', RazorpayWebhookView.as_view(), name='razorpay-webhook'),
+    path('wallet/withdraw/', WithdrawView.as_view(), name='wallet-withdraw'),
+    path('transactions/', TransactionListView.as_view(), name='transactions'),
+    path('goals/templates/', GoalTemplateListView.as_view(), name='goal-templates'),
+    path('goals/reminders/', GoalRemindersView.as_view(), name='goal-reminders'),
+    path('goals/', GoalPlanListCreateView.as_view(), name='goal-plans'),
+    path('goals/<uuid:goal_id>/', GoalPlanDetailView.as_view(), name='goal-detail'),
+    path('goals/<uuid:goal_id>/contribute/', GoalContributeView.as_view(), name='goal-contribute'),
+    path('goals/<uuid:goal_id>/withdraw/', GoalWithdrawView.as_view(), name='goal-withdraw'),
+]

@@ -1,0 +1,29 @@
+{
+  "user": {
+    "id": "USR001",
+    "name": "Rahul Sharma",
+    "phone": "+91 98765 43210",
+    "email": "rahul.sharma@email.com",
+    "panStatus": "Verified",
+    "kycStatus": "Completed",
+    "avatarUrl": "https://i.pravatar.cc/150?img=12"
+  },
+  "portfolio": {
+    "totalInvestment": 2500000,
+    "currentValue": 2875000,
+    "monthlyProfit": 42500,
+    "totalProfit": 375000,
+    "growthPercent": 15.0
+  },
+  "wallet": {
+    "balance": 125000,
+    "bankName": "HDFC Bank",
+    "accountNumber": "****4521",
+    "ifsc": "HDFC0001234"
+  },
+  "investmentPlan": {
+    "minimumInvestment": 1000000,
+    "monthlyReturnRate": 1.5,
+    "annualReturnRate": 18.0
+  }
+}
