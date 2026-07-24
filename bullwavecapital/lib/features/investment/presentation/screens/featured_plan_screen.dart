@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/dimensions.dart';
 import '../../../../core/constants/routes.dart';
+import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/utils/bank_verification_guard.dart';
 import '../../../../core/utils/formatters.dart';
@@ -82,13 +83,14 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
             }
 
             final plan = provider.plan;
+            final colors = context.appColors;
             if (plan == null) {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     provider.error ?? 'Plan not found.',
-                    style: const TextStyle(color: Colors.white70),
+                    style: TextStyle(color: colors.textSecondary),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -104,12 +106,12 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                      colors: [AppColors.brandPrimary, AppColors.brandPrimaryDark],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.brandOrange.withValues(alpha: 0.35)),
+                    border: Border.all(color: AppColors.brandMint.withValues(alpha: 0.35)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,12 +121,12 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppColors.brandOrange.withValues(alpha: 0.15),
+                              color: AppColors.brandMint.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(
                               'Featured',
-                              style: TextStyle(color: AppColors.brandOrange, fontWeight: FontWeight.w700, fontSize: 12),
+                              style: TextStyle(color: AppColors.brandMint, fontWeight: FontWeight.w700, fontSize: 12),
                             ),
                           ),
                         ],
@@ -172,23 +174,23 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Investment Amount',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                        style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w700, fontSize: 15),
                       ),
                       const SizedBox(height: 8),
                       MoneyText(
                         amount: CurrencyFormatter.format(provider.investmentAmount),
                         fontSize: 32,
-                        color: Colors.white,
+                        color: colors.textPrimary,
                       ),
                       Slider(
                         value: provider.investmentAmount.clamp(plan.minimumInvestment, maxAmount),
                         min: plan.minimumInvestment,
                         max: maxAmount,
                         divisions: 20,
-                        activeColor: AppColors.brandOrange,
-                        inactiveColor: Colors.white12,
+                        activeColor: AppColors.green,
+                        inactiveColor: colors.border,
                         onChanged: provider.setAmount,
                       ),
                       Row(
@@ -196,11 +198,11 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                         children: [
                           Text(
                             'Min ${CurrencyFormatter.formatCompact(plan.minimumInvestment)}',
-                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            style: TextStyle(color: colors.textMuted, fontSize: 12),
                           ),
                           Text(
                             'Max ${CurrencyFormatter.formatCompact(maxAmount)}',
-                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            style: TextStyle(color: colors.textMuted, fontSize: 12),
                           ),
                         ],
                       ),
@@ -223,7 +225,7 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                               value: CurrencyFormatter.format(provider.minMonthlyReturn),
                               sub: '${plan.monthlyReturnMin.toStringAsFixed(2)}%',
                             ),
-                            const Divider(color: Colors.white12, height: 24),
+                            Divider(color: colors.border, height: 24),
                             _ReturnRow(
                               label: 'Est. monthly return (max)',
                               value: CurrencyFormatter.format(provider.maxMonthlyReturn),
@@ -237,16 +239,16 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                 _DarkCard(
                   child: Row(
                     children: [
-                      const Icon(Icons.account_balance_wallet_outlined, color: AppColors.brandOrange),
+                      const Icon(Icons.account_balance_wallet_outlined, color: AppColors.green),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Wallet Balance', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                            Text('Wallet Balance', style: TextStyle(color: colors.textMuted, fontSize: 12)),
                             Text(
                               CurrencyFormatter.format(provider.walletBalance),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
+                              style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800, fontSize: 18),
                             ),
                           ],
                         ),
@@ -260,30 +262,30 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Payment Method',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                  style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800, fontSize: 15),
                 ),
                 const SizedBox(height: 10),
                 ...['UPI', 'Debit Card', 'Credit Card', 'Net Banking'].map(
                   (method) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Material(
-                      color: const Color(0xFF151A21),
+                      color: colors.surface,
                       borderRadius: BorderRadius.circular(12),
                       child: ListTile(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(
                             color: provider.paymentMethod == method
-                                ? AppColors.brandOrange.withValues(alpha: 0.6)
-                                : Colors.white12,
+                                ? AppColors.green.withValues(alpha: 0.6)
+                                : colors.border,
                           ),
                         ),
-                        title: Text(method, style: const TextStyle(color: Colors.white)),
+                        title: Text(method, style: TextStyle(color: colors.textPrimary)),
                         trailing: provider.paymentMethod == method
-                            ? const Icon(Icons.check_circle, color: AppColors.brandOrange)
-                            : const Icon(Icons.circle_outlined, color: Colors.white24),
+                            ? const Icon(Icons.check_circle, color: AppColors.green)
+                            : Icon(Icons.circle_outlined, color: colors.textMuted),
                         onTap: () => provider.setPaymentMethod(method),
                       ),
                     ),
@@ -312,7 +314,7 @@ class _FeaturedPlanScreenState extends State<FeaturedPlanScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Funds are allocated to your plan after payment. Returns are credited monthly to your wallet.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12, height: 1.4),
+                  style: TextStyle(color: colors.textMuted, fontSize: 12, height: 1.4),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -331,34 +333,59 @@ class _DetailGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
-      childAspectRatio: 1.55,
+      // Compact, icon-leading row layout instead of a tall stacked card with
+      // a Spacer — reads as a small stat chip rather than an oversized tile.
+      childAspectRatio: 2.5,
       children: items
           .map(
             (item) => Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF151A21),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white10),
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.border),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(item.icon, color: AppColors.brandOrange, size: 20),
-                  const Spacer(),
-                  Text(item.label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.value,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.green.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(item.icon, color: AppColors.green, size: 17),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item.label,
+                          style: TextStyle(color: colors.textMuted, fontSize: 10.5),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.value,
+                          style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w700, fontSize: 13),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -376,13 +403,14 @@ class _DarkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppDimensions.paddingMd),
       decoration: BoxDecoration(
-        color: const Color(0xFF151A21),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: colors.border),
       ),
       child: child,
     );
@@ -412,18 +440,19 @@ class _ReturnRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(label, style: TextStyle(color: colors.textMuted, fontSize: 12)),
               const SizedBox(height: 4),
               Text(
                 value,
                 style: TextStyle(
-                  color: highlight ? AppColors.green : Colors.white,
+                  color: highlight ? colors.positive : colors.textPrimary,
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
                 ),
@@ -434,13 +463,13 @@ class _ReturnRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: (highlight ? AppColors.green : Colors.white).withValues(alpha: 0.12),
+            color: (highlight ? colors.positive : colors.textPrimary).withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             sub,
             style: TextStyle(
-              color: highlight ? AppColors.green : Colors.white70,
+              color: highlight ? colors.positive : colors.textSecondary,
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),

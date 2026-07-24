@@ -28,13 +28,15 @@ class HomeCleanHeader extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                'BullWave',
+                'Capital Bullwave',
                 textAlign: TextAlign.center,
-                style: ThemeAType.heading(size: 22, color: p.textDark),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: ThemeAType.heading(size: 20, color: p.textDark),
               ),
               const SizedBox(height: 2),
               Text(
-                'Invest',
+                'Investing',
                 style: ThemeAType.label(size: 12, color: p.textGrey)
                     .copyWith(letterSpacing: 2.0, fontWeight: FontWeight.w500),
               ),

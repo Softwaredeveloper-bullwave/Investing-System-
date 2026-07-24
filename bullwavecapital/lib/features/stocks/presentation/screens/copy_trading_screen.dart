@@ -600,52 +600,66 @@ class _CopyTraderDetailScreenState extends State<CopyTraderDetailScreen> {
               padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
               child: Container(
                 margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                decoration: BoxDecoration(
+                // Material (not a plain Container+BoxDecoration) so the
+                // SwitchListTile below has a proper ink canvas at the right
+                // color — showModalBottomSheet's own Material is transparent
+                // (backgroundColor: Colors.transparent above), so painting
+                // the card surface with a bare decoration instead of a
+                // Material left the switch's ink splashes rendering behind
+                // it, invisible ("ListTile background color or ink splashes
+                // may be invisible").
+                child: Material(
                   color: p.card,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: p.borderLight),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Copy ${trader.displayName}',
-                      style: ThemeAType.sectionTitle(color: p.textDark),
+                  clipBehavior: Clip.antiAlias,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: p.borderLight),
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Allocate capital to mirror this verified method. Min ${CurrencyFormatter.format(trader.minCopyAmount)}.',
-                      style: ThemeAType.body(color: p.textGrey, size: 13),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Copy ${trader.displayName}',
+                          style: ThemeAType.sectionTitle(color: p.textDark),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Allocate capital to mirror this verified method. Min ${CurrencyFormatter.format(trader.minCopyAmount)}.',
+                          style: ThemeAType.body(color: p.textGrey, size: 13),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            labelText: 'Allocation (₹)',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('Auto-copy new trades', style: ThemeAType.body(color: p.textDark, size: 14)),
+                          value: autoCopy,
+                          activeThumbColor: p.primary,
+                          onChanged: (v) => setModal(() => autoCopy = v),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Start copying'),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: amountController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        labelText: 'Allocation (₹)',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('Auto-copy new trades', style: ThemeAType.body(color: p.textDark, size: 14)),
-                      value: autoCopy,
-                      activeThumbColor: p.primary,
-                      onChanged: (v) => setModal(() => autoCopy = v),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Start copying'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             );

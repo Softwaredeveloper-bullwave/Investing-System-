@@ -366,5 +366,21 @@ class StockMarketProvider extends ChangeNotifier {
   Future<void> refresh() async {
     await _loadInitial();
   }
+
+  /// Always re-fetches the live quote for [symbol], unlike [ensureStock]
+  /// (which skips the fetch once the symbol is already cached). Used by
+  /// the Scalping screen, which needs a fast repeated tick on one symbol
+  /// rather than a one-time load.
+  Future<StockModel?> refreshQuote(String symbol) async {
+    final upper = symbol.toUpperCase();
+    try {
+      final stock = await _api.getStockQuote(upper);
+      _stocks = [..._stocks.where((s) => s.symbol != upper), stock];
+      notifyListeners();
+      return stock;
+    } catch (_) {
+      return getStock(upper);
+    }
+  }
 }
 

@@ -8,6 +8,8 @@ import '../../models/investment_doc_model.dart';
 import '../../models/market_index_model.dart';
 import '../../models/notification_model.dart';
 import '../../models/option_trade_model.dart';
+import '../../models/paper_portfolio_model.dart';
+import '../../models/paper_trading_model.dart';
 import '../../models/portfolio_model.dart';
 import '../../models/referral_model.dart';
 import '../../models/stock_model.dart';
@@ -234,6 +236,9 @@ OptionHoldingModel parseOptionHolding(Map<String, dynamic> json) => OptionHoldin
       quantity: _int(json['quantity']),
       avgPremium: _num(json['avgPremium']),
       lotSize: _int(json['lotSize']),
+      ltpPremium: json['ltpPremium'] != null ? _num(json['ltpPremium']) : null,
+      currentValueInr: json['currentValueInr'] != null ? _num(json['currentValueInr']) : null,
+      unrealizedPnlInr: json['unrealizedPnlInr'] != null ? _num(json['unrealizedPnlInr']) : null,
     );
 
 OptionTradeModel parseOptionTrade(Map<String, dynamic> json) => OptionTradeModel(
@@ -429,6 +434,10 @@ PaperTradeModel parsePaperTrade(Map<String, dynamic> json) => PaperTradeModel(
           json['holdingAvgPrice'] != null ? _num(json['holdingAvgPrice']) : null,
       unrealizedPnl: json['unrealizedPnl'] != null ? _num(json['unrealizedPnl']) : null,
       ltp: _num(json['ltp']),
+      virtualBalance: json['virtualBalance'] != null ? _num(json['virtualBalance']) : null,
+      virtualStartingBalance: json['virtualStartingBalance'] != null
+          ? _num(json['virtualStartingBalance'])
+          : null,
     );
 
 DividendModel parseDividend(Map<String, dynamic> json) => DividendModel(
@@ -674,4 +683,126 @@ CopySubscriptionModel parseCopySubscription(Map<String, dynamic> json) =>
       copiedPnl: _num(json['copiedPnl']),
       startedAt: _date(json['startedAt']),
       updatedAt: _date(json['updatedAt']),
+    );
+
+// ── Paper Trading module ───────────────────────────────────────────────
+
+PaperOrderModel parsePaperOrder(Map<String, dynamic> json) => PaperOrderModel(
+      id: json['id']?.toString() ?? '',
+      symbol: json['symbol'] as String? ?? '',
+      stockName: json['stockName'] as String? ?? '',
+      side: json['side'] as String? ?? '',
+      orderType: json['orderType'] as String? ?? 'MARKET',
+      quantity: _int(json['quantity']),
+      limitPrice: json['limitPrice'] != null ? _num(json['limitPrice']) : null,
+      triggerPrice: json['triggerPrice'] != null ? _num(json['triggerPrice']) : null,
+      status: json['status'] as String? ?? '',
+      executedPrice: json['executedPrice'] != null ? _num(json['executedPrice']) : null,
+      charges: _num(json['charges']),
+      rejectReason: json['rejectReason'] as String? ?? '',
+      ltp: _num(json['ltp']),
+      createdAt: _date(json['createdAt']),
+      updatedAt: _date(json['updatedAt']),
+      executedAt: json['executedAt'] != null ? _date(json['executedAt']) : null,
+      tradeId: json['tradeId'] as String?,
+    );
+
+PaperLedgerEntryModel parsePaperLedgerEntry(Map<String, dynamic> json) => PaperLedgerEntryModel(
+      id: json['id']?.toString() ?? '',
+      entryType: json['entryType'] as String? ?? '',
+      amount: _num(json['amount']),
+      balanceAfter: _num(json['balanceAfter']),
+      description: json['description'] as String? ?? '',
+      orderId: json['orderId'] as String?,
+      createdAt: _date(json['createdAt']),
+    );
+
+PaperJournalEntryModel parsePaperJournalEntry(Map<String, dynamic> json) => PaperJournalEntryModel(
+      id: json['id']?.toString() ?? '',
+      tradeId: json['tradeId'] as String?,
+      symbol: json['symbol'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      notes: json['notes'] as String? ?? '',
+      lessonLearned: json['lessonLearned'] as String? ?? '',
+      mood: json['mood'] as String? ?? '',
+      rating: json['rating'] != null ? _int(json['rating']) : null,
+      createdAt: _date(json['createdAt']),
+      updatedAt: _date(json['updatedAt']),
+    );
+
+EquityCurvePoint _parseEquityPoint(Map<String, dynamic> json) => EquityCurvePoint(
+      date: json['date'] as String?,
+      equity: _num(json['equity']),
+    );
+
+PaperAnalyticsModel parsePaperAnalytics(Map<String, dynamic> json) => PaperAnalyticsModel(
+      totalTrades: _int(json['totalTrades']),
+      closedTrades: _int(json['closedTrades']),
+      winCount: _int(json['winCount']),
+      lossCount: _int(json['lossCount']),
+      winRatePercent: _num(json['winRatePercent']),
+      profitFactor: _num(json['profitFactor']),
+      avgWin: _num(json['avgWin']),
+      avgLoss: _num(json['avgLoss']),
+      bestTrade: _num(json['bestTrade']),
+      worstTrade: _num(json['worstTrade']),
+      totalRealizedPnl: _num(json['totalRealizedPnl']),
+      currentEquity: _num(json['currentEquity']),
+      startingBalance: _num(json['startingBalance']),
+      totalReturnPercent: _num(json['totalReturnPercent']),
+      maxDrawdownAmount: _num(json['maxDrawdownAmount']),
+      maxDrawdownPercent: _num(json['maxDrawdownPercent']),
+      equityCurve: ((json['equityCurve'] as List?) ?? [])
+          .map((e) => _parseEquityPoint(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+PaperRiskLimitModel parsePaperRiskLimit(Map<String, dynamic> json) => PaperRiskLimitModel(
+      maxDailyLoss: json['maxDailyLoss'] != null ? _num(json['maxDailyLoss']) : null,
+      maxPositionSizePercent: _num(json['maxPositionSizePercent']),
+      isActive: json['isActive'] as bool? ?? true,
+    );
+
+PositionBreachModel _parsePositionBreach(Map<String, dynamic> json) => PositionBreachModel(
+      symbol: json['symbol'] as String? ?? '',
+      positionPercent: _num(json['positionPercent']),
+      limitPercent: _num(json['limitPercent']),
+    );
+
+PaperRiskStatusModel parsePaperRiskStatus(Map<String, dynamic> json) => PaperRiskStatusModel(
+      limit: parsePaperRiskLimit((json['limit'] as Map<String, dynamic>?) ?? <String, dynamic>{}),
+      dailyPnl: _num(json['dailyPnl']),
+      dailyLoss: _num(json['dailyLoss']),
+      dailyLossBreached: json['dailyLossBreached'] as bool? ?? false,
+      positionBreaches: ((json['positionBreaches'] as List?) ?? [])
+          .map((e) => _parsePositionBreach(e as Map<String, dynamic>))
+          .toList(),
+      currentEquity: _num(json['currentEquity']),
+    );
+
+PaperPortfolioBucket _parsePaperPortfolioBucket(Map<String, dynamic>? json) {
+  final map = json ?? <String, dynamic>{};
+  return PaperPortfolioBucket(
+    invested: _num(map['invested']),
+    currentValue: _num(map['currentValue']),
+    unrealizedPnl: _num(map['unrealizedPnl']),
+    count: _int(map['count']),
+    holdings: ((map['holdings'] as List?) ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList(),
+  );
+}
+
+PaperPortfolioModel parsePaperPortfolio(Map<String, dynamic> json) => PaperPortfolioModel(
+      virtualBalance: _num(json['virtualBalance']),
+      virtualStartingBalance: _num(json['virtualStartingBalance']),
+      totalInvested: _num(json['totalInvested']),
+      totalCurrentValue: _num(json['totalCurrentValue']),
+      totalUnrealizedPnl: _num(json['totalUnrealizedPnl']),
+      totalUnrealizedPnlPercent: _num(json['totalUnrealizedPnlPercent']),
+      totalEquity: _num(json['totalEquity']),
+      totalReturnPercent: _num(json['totalReturnPercent']),
+      equity: _parsePaperPortfolioBucket(json['equity'] as Map<String, dynamic>?),
+      options: _parsePaperPortfolioBucket(json['options'] as Map<String, dynamic>?),
+      commodities: _parsePaperPortfolioBucket(json['commodities'] as Map<String, dynamic>?),
     );

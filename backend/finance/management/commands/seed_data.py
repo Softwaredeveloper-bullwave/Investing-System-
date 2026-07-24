@@ -31,7 +31,7 @@ DEMO_HOLDINGS = [
 PLANS = [
     (
         'PLAN001',
-        'BullWave Alpha Premier',
+        'Capital Bullwave Alpha Premier',
         1000000,
         0.25,
         0.25,
@@ -42,7 +42,7 @@ PLANS = [
     ),
     (
         'PLAN002',
-        'BullWave Platinum Reserve',
+        'Capital Bullwave Platinum Reserve',
         5000000,
         3.0,
         3.0,
@@ -53,7 +53,7 @@ PLANS = [
     ),
     (
         'PLAN003',
-        'BullWave Sovereign Crown',
+        'Capital Bullwave Sovereign Crown',
         10000000,
         4.0,
         4.0,

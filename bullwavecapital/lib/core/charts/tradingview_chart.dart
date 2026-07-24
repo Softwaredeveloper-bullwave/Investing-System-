@@ -3,14 +3,17 @@ import 'package:flutter/material.dart';
 import '../../features/stocks/presentation/widgets/candlestick_chart.dart';
 import '../../models/stock_model.dart';
 import '../theme/theme_a.dart';
-import 'tradingview_config.dart';
 import 'tradingview_symbols.dart';
 
 import 'tradingview_platform_stub.dart'
     if (dart.library.html) 'tradingview_platform_web.dart'
     if (dart.library.io) 'tradingview_platform_mobile.dart';
 
-/// Candlestick chart powered by TradingView embed (web + mobile) with backend candle fallback.
+/// One consistent candlestick chart used everywhere in the app — see
+/// `_preferNativeChart` below. The TradingView web/mobile embed path is kept
+/// in this file (dead code, `_preferNativeChart` always returns true now)
+/// only in case it's ever worth re-enabling for a specific symbol class;
+/// nothing currently routes through it.
 class TradingViewChart extends StatelessWidget {
   final String symbol;
   final String intervalLabel;
@@ -20,6 +23,10 @@ class TradingViewChart extends StatelessWidget {
   final double height;
   final List<CandleModel>? fallbackCandles;
   final bool isLoading;
+  final ChartStyle style;
+  final bool showMA9;
+  final bool showMA21;
+  final bool showVolume;
 
   const TradingViewChart({
     super.key,
@@ -31,6 +38,10 @@ class TradingViewChart extends StatelessWidget {
     this.height = 280,
     this.fallbackCandles,
     this.isLoading = false,
+    this.style = ChartStyle.candle,
+    this.showMA9 = true,
+    this.showMA21 = true,
+    this.showVolume = true,
   });
 
   String get _tvSymbol => isCommodity
@@ -44,14 +55,16 @@ class TradingViewChart extends StatelessWidget {
     return TradingViewSymbols.intervalForLabel(intervalLabel);
   }
 
-  /// Free TradingView embeds block most NSE/BSE equities with
-  /// "This symbol is only available on TradingView" — use our candle data instead.
-  bool get _preferNativeChart {
-    if (!TradingViewConfig.isEnabled) return true;
-    if (isCommodity) return false;
-    final ex = exchange.toUpperCase().trim();
-    return ex == 'NSE' || ex == 'BSE' || ex.isEmpty;
-  }
+  /// Always use our own native candlestick chart — one consistent chart
+  /// everywhere in the app (equities, indices, commodities), instead of
+  /// mixing in the TradingView web/iframe embed. The embed was unreliable
+  /// (free TradingView blocks most NSE/BSE symbols outright, and even for
+  /// symbols it does allow — like commodities — it can hang on a loading
+  /// spinner depending on network/CDN conditions). The native chart renders
+  /// instantly from data we already fetch, supports pan/zoom/crosshair, and
+  /// now draws MA9/MA21 indicators + volume, matching what the embed would
+  /// have shown anyway.
+  bool get _preferNativeChart => true;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +123,13 @@ class TradingViewChart extends StatelessWidget {
       );
     }
 
-    return CandlestickChart(candles: candles, height: height);
+    return CandlestickChart(
+      candles: candles,
+      height: height,
+      style: style,
+      showMA9: showMA9,
+      showMA21: showMA21,
+      showVolume: showVolume,
+    );
   }
 }

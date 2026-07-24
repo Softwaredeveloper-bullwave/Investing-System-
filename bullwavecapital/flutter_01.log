@@ -1,0 +1,83 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter run
+
+## exception
+
+RPCError: ext.flutter.debugPaint: (-32603) Unexpected DWDS error for callServiceExtension: WipError -32000 Promise was collected
+
+```
+#0      new _OutstandingRequest (package:vm_service/src/vm_service.dart:268:34)
+#1      VmService._call.<anonymous closure> (package:vm_service/src/vm_service.dart:1950:25)
+#2      VmService._call (package:vm_service/src/vm_service.dart:1962:8)
+#3      VmService.callServiceExtension (package:vm_service/src/vm_service.dart:1901:14)
+#4      FlutterVmService._checkedCallServiceExtension (package:flutter_tools/src/vmservice.dart:771:28)
+#5      FlutterVmService.invokeFlutterExtensionRpcRaw (package:flutter_tools/src/vmservice.dart:790:49)
+#6      FlutterVmService._flutterToggle (package:flutter_tools/src/vmservice.dart:636:21)
+<asynchronous suspension>
+#7      ResidentHandlers.debugToggleDebugPaintSizeEnabled (package:flutter_tools/src/resident_runner.dart:716:9)
+<asynchronous suspension>
+#8      TerminalHandler.processTerminalInput (package:flutter_tools/src/resident_runner.dart:1805:7)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[32m[✓][39m Flutter (Channel stable, 3.44.4, on Microsoft Windows [Version
+    10.0.26200.8894], locale en-IN) [3.9s]
+    [32m•[39m Flutter version 3.44.4 on channel stable at C:\src\flutter
+    [32m•[39m Upstream repository https://github.com/flutter/flutter.git
+    [32m•[39m Framework revision ad70ec4617 (4 weeks ago), 2026-06-24 11:07:06
+      -0700
+    [32m•[39m Engine revision a10d8ac38d
+    [32m•[39m Dart version 3.12.2
+    [32m•[39m DevTools version 2.57.0
+    [32m•[39m Feature flags: enable-web, enable-linux-desktop,
+      enable-macos-desktop, enable-windows-desktop, enable-android,
+      enable-ios, cli-animations, enable-native-assets,
+      enable-swift-package-manager, omit-legacy-version-file,
+      enable-lldb-debugging, enable-uiscene-migration
+
+[32m[✓][39m Windows Version (Windows 11 or higher, 25H2, 2009) [10.5s]
+
+[32m[✓][39m Android toolchain - develop for Android devices (Android SDK version
+    36.1.0) [15.8s]
+    [32m•[39m Android SDK at C:\Users\rohit\AppData\Local\Android\sdk
+    [32m•[39m Emulator version 36.6.11.0 (build_id 15507667) (CL:N/A)
+    [32m•[39m Platform android-36.1, build-tools 36.1.0
+    [32m•[39m Java binary at: C:\Program Files\Common
+      Files\Oracle\Java\javapath\java.exe
+      This JDK was found in the system PATH.
+      To manually set the JDK path, use: `flutter config
+      --jdk-dir="path/to/jdk"`.
+    [32m•[39m Java version Java(TM) SE Runtime Environment (build
+      21.0.11+9-LTS-211)
+    [32m•[39m All Android licenses accepted.
+
+[32m[✓][39m Chrome - develop for the web [3.2s]
+    [32m•[39m Chrome at C:\Program Files\Google\Chrome\Application\chrome.exe
+
+[32m[✓][39m Visual Studio - develop Windows apps (Visual Studio Build Tools 2026
+    18.5.2) [3.2s]
+    [32m•[39m Visual Studio at C:\Program Files (x86)\Microsoft Visual
+      Studio\18\BuildTools
+    [32m•[39m Visual Studio Build Tools 2026 version 18.5.11723.231
+    [32m•[39m Windows 10 SDK version 10.0.26100.0
+
+[32m[✓][39m Connected device (3 available) [832ms]
+    [32m•[39m Windows (desktop) • windows • windows-x64    • Microsoft Windows
+      [Version 10.0.26200.8894]
+    [32m•[39m Chrome (web)      • chrome  • web-javascript • Google Chrome
+      150.0.7871.181
+    [32m•[39m Edge (web)        • edge    • web-javascript • Microsoft Edge
+      150.0.4078.83
+
+[32m[✓][39m Network resources [3.9s]
+    [32m•[39m All expected network resources are available.
+
+[32m•[39m No issues found!
+```

@@ -13,10 +13,18 @@ from .commodity_service import COMMODITY_CATALOG
 from .commodity_trading_service import get_usd_inr_rate
 from .models import OptionHolding, OptionTrade
 
+# NSE/BSE index F&O lot sizes — revised effective January 2026 (weekly
+# contracts from the 6 Jan 2026 expiry, monthly from 27 Jan 2026). Source:
+# NSE circular + exchange bulletins, current as of Jul 2026. Individual
+# stock F&O lot sizes aren't tracked here yet — they vary per stock and are
+# revised periodically by NSE/SEBI; unlisted symbols fall back to 1.
 LOT_SIZES = {
-    'NIFTY': 25,
-    'BANKNIFTY': 15,
-    'FINNIFTY': 25,
+    'NIFTY': 65,
+    'BANKNIFTY': 30,
+    'FINNIFTY': 60,
+    'MIDCPNIFTY': 120,
+    'SENSEX': 20,
+    'BANKEX': 30,
 }
 
 

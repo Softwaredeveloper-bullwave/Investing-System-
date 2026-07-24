@@ -78,6 +78,53 @@ def fetch_quote(nse_symbol):
     return quote
 
 
+def fetch_futures_candles(yahoo_ticker, resolution='D', days=90):
+    """OHLCV history for a raw Yahoo ticker (futures like `GC=F`, indices
+    like `^NSEI`, or anything else that should NOT get the `.NS` equity
+    suffix appended — see `_yahoo_ticker`, which only skips that suffix for
+    tickers that already contain `^` or `=`). Used for commodity charts.
+    """
+    cache_key = f'yahoo_candles:{yahoo_ticker}:{resolution}:{days}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    intraday = {
+        '1': ('1m', 7),
+        '5': ('5m', 60),
+        '15': ('15m', 60),
+        '30': ('30m', 60),
+        '60': ('60m', 60),
+    }
+    try:
+        t = yf.Ticker(yahoo_ticker)
+        if resolution in intraday:
+            yf_interval, max_days = intraday[resolution]
+            period = min(days, max_days)
+            hist = t.history(period=f'{period}d', interval=yf_interval)
+        else:
+            hist = t.history(period=f'{min(days, 365)}d', interval='1d')
+    except Exception as exc:
+        logger.debug('Yahoo futures candles failed for %s: %s', yahoo_ticker, exc)
+        return []
+
+    candles = []
+    for idx, row in hist.iterrows():
+        candles.append(
+            {
+                'time': int(idx.timestamp()),
+                'open': float(row['Open']),
+                'high': float(row['High']),
+                'low': float(row['Low']),
+                'close': float(row['Close']),
+                'volume': int(row['Volume']),
+            }
+        )
+    if candles:
+        cache.set(cache_key, candles, 120)
+    return candles
+
+
 def fetch_batch_quotes(nse_symbols):
     """Fetch quotes for multiple NSE symbols (uses cache per symbol)."""
     results = {}

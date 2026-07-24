@@ -23,6 +23,7 @@ class PanVerificationScreen extends StatefulWidget {
 class _PanVerificationScreenState extends State<PanVerificationScreen> {
   final _panController = TextEditingController();
   final _nameController = TextEditingController();
+  final _dobController = TextEditingController();
   bool _verified = false;
 
   @override
@@ -41,7 +42,24 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
   void dispose() {
     _panController.dispose();
     _nameController.dispose();
+    _dobController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 25),
+      firstDate: DateTime(1940),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() {
+        _dobController.text =
+            '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      });
+    }
   }
 
   Future<void> _verify() async {
@@ -52,7 +70,17 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
       );
       return;
     }
-    final ok = await context.read<KycFlowProvider>().verifyPan(pan, holderName: _nameController.text);
+    if (_dobController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select your date of birth')),
+      );
+      return;
+    }
+    final ok = await context.read<KycFlowProvider>().verifyPan(
+          pan,
+          holderName: _nameController.text,
+          dob: _dobController.text,
+        );
     if (!mounted) return;
     if (ok) setState(() => _verified = true);
   }
@@ -68,13 +96,13 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               const Text(
-                'Verify your PAN with Cashfree Secure ID',
+                'Verify your PAN',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
               ),
                 const SizedBox(height: 8),
                 Text(
-                  'Your PAN is verified against Income Tax Department records via Cashfree. '
-                  'Use the exact legal name printed on your PAN card.',
+                  'Your PAN is verified live against Income Tax Department records. '
+                  'Use the exact legal name and date of birth as printed on your PAN card.',
                   style: TextStyle(color: Colors.grey.shade600),
                 ),
               const SizedBox(height: 24),
@@ -95,6 +123,15 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
                   label: 'Full Name (as on PAN)',
                   hint: 'Legal name',
                   textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  controller: _dobController,
+                  label: 'Date of Birth',
+                  hint: 'YYYY-MM-DD',
+                  readOnly: true,
+                  onTap: _pickDob,
+                  suffixIcon: const Icon(Icons.calendar_today_outlined),
                 ),
                 if (kyc.error != null) ...[
                   const SizedBox(height: 16),
@@ -128,7 +165,12 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
                 const SizedBox(height: 24),
                 PrimaryButton(
                   label: 'Continue to Bank Verification',
-                  onPressed: () => context.push(AppRoutes.bankVerificationKyc),
+                  onPressed: () {
+                    // Track this push so finishKycFlow() (bank_verification_guard.dart)
+                    // knows how many screens to pop once verification finishes.
+                    context.read<KycFlowProvider>().kycPushDepth++;
+                    context.push(AppRoutes.bankVerificationKyc);
+                  },
                 ),
               ],
             ],

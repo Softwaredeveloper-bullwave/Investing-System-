@@ -29,6 +29,7 @@ import 'features/stocks/presentation/provider/option_trading_provider.dart';
 import 'features/stocks/presentation/provider/stock_features_provider.dart';
 import 'features/stocks/presentation/provider/copy_trading_provider.dart';
 import 'features/stocks/presentation/provider/paper_competition_provider.dart';
+import 'features/stocks/presentation/provider/paper_trading_provider.dart';
 import 'features/stocks/presentation/provider/institutional_flow_provider.dart';
 import 'features/fno/presentation/provider/fno_flow_provider.dart';
 import 'features/goals/presentation/provider/goal_plan_provider.dart';
@@ -91,6 +92,7 @@ class _BullWaveAppState extends State<BullWaveApp> {
         ChangeNotifierProvider(create: (_) => StockFeaturesProvider()),
         ChangeNotifierProvider(create: (_) => CopyTradingProvider()),
         ChangeNotifierProvider(create: (_) => PaperCompetitionProvider()),
+        ChangeNotifierProvider(create: (_) => PaperTradingProvider()),
         ChangeNotifierProvider(create: (_) => InstitutionalFlowProvider()),
         ChangeNotifierProvider(create: (_) => NotesProvider()),
         ChangeNotifierProvider(create: (_) => EducationProvider()),
@@ -101,7 +103,7 @@ class _BullWaveAppState extends State<BullWaveApp> {
       child: Consumer<AppProvider>(
         builder: (context, appProvider, _) {
           return MaterialApp.router(
-            title: 'BullWave Invest',
+            title: 'Capital Bullwave Invest',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,

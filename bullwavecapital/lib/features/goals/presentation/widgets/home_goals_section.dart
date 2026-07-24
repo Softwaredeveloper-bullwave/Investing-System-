@@ -74,7 +74,7 @@ class _GoalChip extends StatelessWidget {
                     child: Icon(
                       PhosphorIcons.flag,
                       size: 16,
-                      color: HomeThemeA.of(context).primaryDark,
+                      color: HomeThemeA.of(context).primary,
                     ),
                   ),
                   const SizedBox(width: 8),

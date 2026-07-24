@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/constants/routes.dart';
 import '../../../../core/theme/colors.dart';
+import '../../../../core/utils/bank_verification_guard.dart';
 import '../../../../core/widgets/custom_app_bar.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../provider/kyc_flow_provider.dart';
@@ -63,7 +62,7 @@ class _NameMatchScreenState extends State<NameMatchScreen> {
                     ),
                   ),
                   const Spacer(),
-                  PrimaryButton(label: 'Start Investing', onPressed: () => context.go(AppRoutes.invest)),
+                  PrimaryButton(label: 'Start Investing', onPressed: () => finishKycFlow(context)),
                 ] else if (_passed == false) ...[
                   KycErrorBanner(
                     message: kyc.error ?? 'Names do not match. Update bank or PAN details and retry.',

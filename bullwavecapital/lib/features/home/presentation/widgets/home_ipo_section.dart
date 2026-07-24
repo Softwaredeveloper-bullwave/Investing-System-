@@ -79,7 +79,7 @@ class _HoldingPreview extends StatelessWidget {
             child: Icon(
               PhosphorIcons.chartLineUp,
               size: 18,
-              color: p.primaryDark,
+              color: p.primary,
             ),
           ),
           const SizedBox(width: 12),

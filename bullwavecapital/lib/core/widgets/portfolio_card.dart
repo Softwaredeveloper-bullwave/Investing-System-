@@ -53,7 +53,7 @@ class PortfolioSummaryCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: colors.primaryLight,
                 ),
-                child: Icon(Icons.donut_large_rounded, color: colors.primaryDark, size: 32),
+                child: Icon(Icons.donut_large_rounded, color: colors.primary, size: 32),
               ),
             ],
           ),
@@ -227,7 +227,7 @@ class InvestmentCard extends StatelessWidget {
               height: compact ? 36 : 44,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppColors.brandOrange,
+                color: AppColors.green,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(

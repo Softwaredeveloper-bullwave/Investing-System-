@@ -2,8 +2,11 @@
 class ShellLayout {
   ShellLayout._();
 
-  /// Bottom nav bar height + outer padding.
-  static const double bottomNavHeight = 84;
+  /// Bottom nav bar total footprint: SafeArea bottom minimum (8) + outer
+  /// padding (6) + the nav Stack's height (82, which includes the floating
+  /// center action button poking above the 66px bar). Keep in sync with
+  /// AppBottomNavigation's layout in bottom_navigation.dart.
+  static const double bottomNavHeight = 96;
 
   /// Gap between bottom nav top edge and FAB bottom edge.
   static const double fabAboveNavGap = 16;

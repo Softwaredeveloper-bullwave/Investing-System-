@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/charts/tradingview_chart.dart';
 import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_decorations.dart';
 import '../../../../core/theme/app_theme_extension.dart';
@@ -12,6 +13,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../models/stock_model.dart';
 import '../../../wallet/presentation/provider/wallet_provider.dart';
 import '../provider/option_trading_provider.dart';
+import '../provider/stock_market_provider.dart';
 import '../utils/option_trading_flow.dart';
 import 'option_order_success_sheet.dart';
 
@@ -51,12 +53,28 @@ class _OptionTradingPadState extends State<OptionTradingPad> {
   late String _side;
   late final TextEditingController _qtyController;
   bool _isPlacing = false;
+  bool _chartLoading = false;
+
+  bool get _isCommodity => widget.chainContext.assetClass == 'commodity';
 
   @override
   void initState() {
     super.initState();
     _side = widget.initialSide == 'SELL' ? 'SELL' : 'BUY';
     _qtyController = TextEditingController(text: '1');
+    // Commodity charts render via the live TradingView embed directly (no
+    // local candle fetch needed) — only equity F&O needs our own candle
+    // history for the native fallback chart.
+    if (!_isCommodity) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadChart());
+    }
+  }
+
+  Future<void> _loadChart() async {
+    if (!mounted) return;
+    setState(() => _chartLoading = true);
+    await context.read<StockMarketProvider>().loadCandles(widget.contract.symbol, interval: '1d');
+    if (mounted) setState(() => _chartLoading = false);
   }
 
   @override
@@ -157,8 +175,8 @@ class _OptionTradingPadState extends State<OptionTradingPad> {
     final isCall = contract.type == 'CE';
     final typeColor = isCall ? AppColors.green : AppColors.red;
 
-    return Consumer2<OptionTradingProvider, WalletProvider>(
-      builder: (context, trading, wallet, _) {
+    return Consumer3<OptionTradingProvider, WalletProvider, StockMarketProvider>(
+      builder: (context, trading, wallet, market, _) {
         final available = trading.holdingLots(
           underlying: contract.symbol,
           strike: contract.strike,
@@ -170,197 +188,227 @@ class _OptionTradingPadState extends State<OptionTradingPad> {
         final orderInr = _orderInrEstimate(_qty);
         final title = optionContractTitle(contract);
 
-        return Container(
-          height: screenH * 0.88,
-          margin: const EdgeInsets.only(top: 8),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                          Text(
-                            'Exp ${optionExpiryLabel(contract.expiry)} • Lot $lot',
-                            style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                          ),
-                        ],
+        // Content-hugging bottom sheet — sized to what it actually shows
+        // instead of a fixed 88% of the screen, which left a large empty
+        // gap below the summary card on most contracts. Still capped at
+        // 90% of the screen height, and the middle section scrolls if the
+        // content (now including the chart) genuinely needs more room than
+        // that on a short device.
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: screenH * 0.9),
+          child: Container(
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
                       ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: colors.textPrimary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Exp ${optionExpiryLabel(contract.expiry)} • Lot $lot',
+                              style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _SideButton(
-                        label: 'BUY',
-                        selected: !_isSell,
-                        color: AppColors.green,
-                        onTap: () => setState(() => _side = 'BUY'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SideButton(
+                          label: 'BUY',
+                          selected: !_isSell,
+                          color: AppColors.green,
+                          onTap: () => setState(() => _side = 'BUY'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _SideButton(
-                        label: 'SELL',
-                        selected: _isSell,
-                        color: AppColors.red,
-                        enabled: canSell,
-                        onTap: canSell ? () => setState(() => _side = 'SELL') : null,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _SideButton(
+                          label: 'SELL',
+                          selected: _isSell,
+                          color: AppColors.red,
+                          enabled: canSell,
+                          onTap: canSell ? () => setState(() => _side = 'SELL') : null,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: AppDecorations.card(context),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: AppDecorations.card(context),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Premium (LTP)', style: TextStyle(color: colors.textMuted, fontSize: 12)),
-                              Text(
-                                '${widget.chainContext.currencySymbol}${contract.ltp.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 28,
-                                  color: typeColor,
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Premium (LTP)', style: TextStyle(color: colors.textMuted, fontSize: 12)),
+                                  Text(
+                                    '${widget.chainContext.currencySymbol}${contract.ltp.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 24,
+                                      color: typeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: typeColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  contract.type,
+                                  style: TextStyle(color: typeColor, fontWeight: FontWeight.w800, fontSize: 12),
                                 ),
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: TradingViewChart(
+                            key: ValueKey(contract.symbol),
+                            symbol: contract.symbol,
+                            intervalLabel: '1D',
+                            isCommodity: _isCommodity,
+                            fallbackCandles: _isCommodity ? null : market.getCandles(contract.symbol, interval: '1d'),
+                            isLoading: !_isCommodity && _chartLoading,
+                            height: 130,
+                          ),
+                        ),
+                        if (available > 0) ...[
+                          const SizedBox(height: 10),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: typeColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: AppDecorations.card(context),
                             child: Text(
-                              contract.type,
-                              style: TextStyle(color: typeColor, fontWeight: FontWeight.w800, fontSize: 12),
+                              'Your position: $available lot(s)',
+                              style: TextStyle(fontWeight: FontWeight.w700, color: colors.textPrimary),
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    if (available > 0) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: AppDecorations.card(context),
-                        child: Text(
-                          'Your position: $available lot(s)',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    Text('Lots', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _QtyStepButton(icon: Icons.remove, onTap: () => _setQty(_qty - 1, available)),
-                        Expanded(
-                          child: TextField(
-                            controller: _qtyController,
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24),
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        const SizedBox(height: 12),
+                        Text('Lots', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _QtyStepButton(icon: Icons.remove, onTap: () => _setQty(_qty - 1, available)),
+                            Expanded(
+                              child: TextField(
+                                controller: _qtyController,
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
+                                decoration: InputDecoration(
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
                             ),
-                            onChanged: (_) => setState(() {}),
+                            _QtyStepButton(icon: Icons.add, onTap: () => _setQty(_qty + 1, available)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final chip in [1, 2, 5])
+                              ActionChip(label: Text('$chip'), onPressed: () => _setQty(chip, available)),
+                            if (_isSell && available > 1)
+                              ActionChip(label: const Text('Max'), onPressed: () => _setQty(available, available)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: AppDecorations.card(context),
+                          child: Column(
+                            children: [
+                              _SummaryRow(
+                                label: _isSell ? 'Est. credit' : 'Order value',
+                                value: CurrencyFormatter.formatDecimal(orderInr),
+                                bold: true,
+                              ),
+                              const SizedBox(height: 6),
+                              _SummaryRow(
+                                label: 'Wallet balance',
+                                value: CurrencyFormatter.formatDecimal(wallet.wallet.balance),
+                              ),
+                            ],
                           ),
                         ),
-                        _QtyStepButton(icon: Icons.add, onTap: () => _setQty(_qty + 1, available)),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final chip in [1, 2, 5])
-                          ActionChip(label: Text('$chip'), onPressed: () => _setQty(chip, available)),
-                        if (_isSell && available > 1)
-                          ActionChip(label: const Text('Max'), onPressed: () => _setQty(available, available)),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: AppDecorations.card(context),
-                      child: Column(
-                        children: [
-                          _SummaryRow(
-                            label: _isSell ? 'Est. credit' : 'Order value',
-                            value: CurrencyFormatter.formatDecimal(orderInr),
-                            bold: true,
-                          ),
-                          const SizedBox(height: 8),
-                          _SummaryRow(
-                            label: 'Wallet balance',
-                            value: CurrencyFormatter.formatDecimal(wallet.wallet.balance),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: FilledButton(
-                      onPressed: _isPlacing ? null : _placeOrder,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _isSell ? AppColors.red : AppColors.green,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: _isPlacing
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(
-                              _isSell ? 'Sell ${contract.type}' : 'Buy ${contract.type}',
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                            ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: _isPlacing ? null : _placeOrder,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _isSell ? AppColors.red : AppColors.green,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: _isPlacing
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text(
+                                _isSell ? 'Sell ${contract.type}' : 'Buy ${contract.type}',
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -385,6 +433,7 @@ class _SideButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final active = selected && enabled;
     return Material(
       color: active ? color.withValues(alpha: 0.14) : Colors.transparent,
@@ -396,14 +445,14 @@ class _SideButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: active ? color : Colors.grey.shade400, width: active ? 2 : 1),
+            border: Border.all(color: active ? color : colors.border, width: active ? 2 : 1),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: enabled ? (active ? color : Colors.grey.shade600) : Colors.grey.shade400,
+              color: enabled ? (active ? color : colors.textSecondary) : colors.textMuted,
             ),
           ),
         ),
@@ -433,13 +482,18 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey.shade600)),
+        Text(label, style: TextStyle(color: colors.textSecondary)),
         Text(
           value,
-          style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 16 : 14),
+          style: TextStyle(
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+            fontSize: bold ? 16 : 14,
+            color: colors.textPrimary,
+          ),
         ),
       ],
     );

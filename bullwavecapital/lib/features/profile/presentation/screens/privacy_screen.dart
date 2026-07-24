@@ -25,7 +25,7 @@ Privacy Policy
 
 Last updated: January 2025
 
-BullWave Invest ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information.
+Capital Bullwave Invest ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information.
 
 Information We Collect
 • Personal identification information (Name, email, phone number, PAN, Aadhaar)

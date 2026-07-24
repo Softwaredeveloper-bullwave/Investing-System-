@@ -49,7 +49,7 @@ class _GoalPlansScreenState extends State<GoalPlansScreen> {
       body: Consumer<GoalPlanProvider>(
         builder: (context, provider, _) {
           if (provider.isLoading && provider.templates.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.brandPink));
+            return const Center(child: CircularProgressIndicator(color: AppColors.green));
           }
 
           final templates = _selectedCategory == null
@@ -57,7 +57,7 @@ class _GoalPlansScreenState extends State<GoalPlansScreen> {
               : provider.templates.where((t) => t.category == _selectedCategory).toList();
 
           return RefreshIndicator(
-            color: AppColors.brandPink,
+            color: AppColors.green,
             onRefresh: provider.load,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -191,16 +191,16 @@ class _SectionHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: (actionColor ?? AppColors.brandCyan).withValues(alpha: 0.14),
+              color: (actionColor ?? AppColors.brandMint).withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: (actionColor ?? AppColors.brandCyan).withValues(alpha: 0.3)),
+              border: Border.all(color: (actionColor ?? AppColors.brandMint).withValues(alpha: 0.3)),
             ),
             child: Text(
               actionLabel!,
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: actionColor ?? AppColors.brandCyan,
+                color: actionColor ?? AppColors.brandMint,
               ),
             ),
           ),
@@ -224,12 +224,11 @@ class _HeroBanner extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1A1035),
-            Color(0xFF3B1A8C),
-            Color(0xFF5B25FE),
+            AppColors.brandPrimary,
+            AppColors.brandPrimaryDark,
           ],
         ),
-        border: Border.all(color: AppColors.brandPrimaryLight.withValues(alpha: 0.35)),
+        border: Border.all(color: AppColors.brandMint.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
             color: AppColors.brandPrimary.withValues(alpha: 0.28),

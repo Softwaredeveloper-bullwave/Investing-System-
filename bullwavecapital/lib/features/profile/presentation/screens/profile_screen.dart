@@ -71,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? CachedNetworkImageProvider(avatarUrl)
                                 : null,
                             child: avatarUrl.isEmpty
-                                ? Icon(Icons.person_rounded, size: 40, color: p.primaryDark)
+                                ? Icon(Icons.person_rounded, size: 40, color: p.primary)
                                 : null,
                           ),
                         ),
@@ -222,7 +222,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.verified_user_outlined,
               title: 'Complete KYC',
               subtitle: user.kycStatus,
-              onTap: () => context.push(AppRoutes.kyc),
+              onTap: () {
+                // Track the push so finishKycFlow() (bank_verification_guard.dart)
+                // pops back to Profile once verification completes.
+                context.read<KycFlowProvider>().kycPushDepth = 1;
+                context.push(AppRoutes.kyc);
+              },
             ),
             ProfileTile(
               icon: Icons.logout_rounded,

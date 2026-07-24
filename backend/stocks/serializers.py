@@ -304,7 +304,7 @@ class UpdateCopySubscriptionSerializer(CamelCaseSerializer):
 class CreatePaperCompetitionSerializer(CamelCaseSerializer):
     name = serializers.CharField(max_length=80, required=False, allow_blank=True, default='')
     starting_balance = serializers.DecimalField(
-        max_digits=14, decimal_places=2, required=False, default=Decimal('100000'),
+        max_digits=14, decimal_places=2, required=False, default=Decimal('1000000'),
         min_value=Decimal('10000'),
     )
     duration_days = serializers.IntegerField(required=False, default=7, min_value=1, max_value=30)

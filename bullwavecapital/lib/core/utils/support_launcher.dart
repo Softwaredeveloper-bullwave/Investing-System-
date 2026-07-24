@@ -11,7 +11,7 @@ class SupportLauncher {
   SupportLauncher._();
 
   static const _defaultMessage =
-      'Hi BullWave team,\n\nI need help with:\n\n';
+      'Hi Capital Bullwave team,\n\nI need help with:\n\n';
 
   static Future<bool> openSms(BuildContext context, {String? message}) async {
     final body = message?.trim().isNotEmpty == true ? message!.trim() : _defaultMessage;

@@ -8,6 +8,12 @@ class OptionHoldingModel {
   final int quantity;
   final double avgPremium;
   final int lotSize;
+  // Live mark-to-market — populated by the paper-trading holdings endpoint
+  // (`ltpPremium`/`currentValueInr`/`unrealizedPnlInr`); null for the real
+  // options endpoint, which doesn't compute these server-side.
+  final double? ltpPremium;
+  final double? currentValueInr;
+  final double? unrealizedPnlInr;
 
   const OptionHoldingModel({
     required this.underlying,
@@ -19,7 +25,13 @@ class OptionHoldingModel {
     required this.quantity,
     required this.avgPremium,
     required this.lotSize,
+    this.ltpPremium,
+    this.currentValueInr,
+    this.unrealizedPnlInr,
   });
+
+  bool get hasLiveMark => ltpPremium != null;
+  bool get isProfit => (unrealizedPnlInr ?? 0) >= 0;
 }
 
 class OptionTradeModel {

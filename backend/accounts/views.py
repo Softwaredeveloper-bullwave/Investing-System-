@@ -166,7 +166,16 @@ class VerifyOTPView(APIView):
 
 
 class DevLoginView(APIView):
-    """DEBUG-only instant JWT for Flutter dev mode (no OTP / Twilio required)."""
+    """DEBUG-only instant JWT for Flutter dev mode (no OTP / Twilio required).
+
+    TEMPORARY (requested for testing, 2026-07-18): accepts ANY phone number,
+    not just DEV_AUTH_PHONE, so the login screen can skip the OTP step for
+    whatever number the user types while testing. Still hard-gated behind
+    `settings.DEBUG` — impossible to hit in a production deployment either
+    way. To restore the original "test phone only" restriction, put back:
+        if phone != DEV_AUTH_PHONE:
+            return Response({'detail': 'Dev login is limited to the test phone number.'}, status=400)
+    """
 
     permission_classes = [AllowAny]
 
@@ -175,12 +184,12 @@ class DevLoginView(APIView):
             return Response({'detail': 'Not available.'}, status=status.HTTP_404_NOT_FOUND)
 
         phone = normalize_phone(request.data.get('phone', DEV_AUTH_PHONE))
-        if phone != DEV_AUTH_PHONE:
-            return Response({'detail': 'Dev login is limited to the test phone number.'}, status=400)
+        if len(phone) != 10 or not phone.isdigit():
+            return Response({'detail': 'Enter a valid 10-digit phone number.'}, status=400)
 
         user, created = User.objects.get_or_create(phone=phone)
         _ensure_user_bootstrap(user, created=created)
-        logger.info('Dev login issued JWT for %s', phone)
+        logger.info('Dev login issued JWT for %s (OTP skipped for testing)', phone)
         return _issue_auth_tokens(user, request, created=created)
 
 

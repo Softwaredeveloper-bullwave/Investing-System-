@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/routes.dart';
+import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/widgets/app_brand_logo.dart';
 import '../../../profile/presentation/provider/app_provider.dart';
@@ -112,6 +113,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final isLast = _currentPage == _pages.length - 1;
 
     return PremiumAuthShell(
+      matchAppTheme: true,
       glowPrimary: page.glow,
       glowSecondary: page.glowSecondary,
       topBar: Padding(
@@ -125,7 +127,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               child: Text(
                 'Skip',
                 style: GoogleFonts.inter(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: context.appColors.textMuted,
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),

@@ -269,6 +269,44 @@ def get_commodity_option_chain(commodity_id, expiry=None, fast=False):
     return result
 
 
+def estimate_option_premium(underlying, strike, option_type, expiry, asset_class='equity_fno'):
+    """Live mark-to-market premium for ONE contract, without building the
+    full chain — same intrinsic + time-value formula as `_build_contracts`/
+    `get_commodity_option_chain`, so it's consistent with what the chain UI
+    shows. Used to mark open paper option positions at a live price instead
+    of stale cost basis (see `paper_analytics_service._option_holdings_value`).
+    Returns a float, or None if the underlying/expiry can't be resolved.
+    """
+    underlying = underlying.upper().strip()
+    option_type = option_type.upper().strip()
+    if isinstance(expiry, str):
+        try:
+            expiry = date.fromisoformat(expiry[:10])
+        except ValueError:
+            return None
+
+    is_commodity = asset_class == 'commodity' or _is_commodity(underlying)
+    if is_commodity:
+        spot, _source = _resolve_commodity_spot(underlying)
+        if spot <= 0:
+            return None
+        vol_factor = 0.022
+    else:
+        spot, _source = _resolve_spot(underlying, fast=False)
+        if spot <= 0:
+            return None
+        vol_factor = 0.018 if _is_index(underlying) else 0.025
+
+    strike = float(strike)
+    moneyness = abs(spot - strike) / spot if spot else 0
+    days = max((expiry - date.today()).days, 1)
+    intrinsic_call = max(0.0, spot - strike)
+    intrinsic_put = max(0.0, strike - spot)
+    intrinsic = intrinsic_call if option_type == 'CE' else intrinsic_put
+    time_val = spot * vol_factor * math.sqrt(days / 365) * math.exp(-moneyness * 4)
+    return max(round(intrinsic + time_val, 2), 0.05)
+
+
 def get_option_chain(symbol, expiry=None, fast=False):
     """
     Build F&O chain from live underlying (Finnhub, Yahoo fallback).

@@ -187,7 +187,7 @@ class _NewsCard extends StatelessWidget {
                               style: ThemeAType.label(size: 11, color: p.textMuted),
                             ),
                           ),
-                          Text('More', style: ThemeAType.action(size: 12, color: p.primaryDark)),
+                          Text('More', style: ThemeAType.action(size: 12, color: p.primary)),
                         ],
                       ),
                     ],

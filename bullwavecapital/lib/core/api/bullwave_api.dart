@@ -12,6 +12,8 @@ import '../../models/investment_doc_model.dart';
 import '../../models/market_mood_model.dart';
 import '../../models/notification_model.dart';
 import '../../models/paper_competition_model.dart';
+import '../../models/paper_portfolio_model.dart';
+import '../../models/paper_trading_model.dart';
 import '../../models/institutional_flow_model.dart';
 import '../../models/portfolio_rebalance_model.dart';
 import '../../models/portfolio_health_model.dart';
@@ -728,6 +730,162 @@ class BullwaveApi {
     return parsePaperTrade(data);
   }
 
+  /// Virtual practice-capital balance for equity paper trading — isolated
+  /// from the real wallet, so this never reflects actual deposited money.
+  Future<Map<String, double>> getPaperWallet() async {
+    final data = await _client.get('/paper-trading/wallet/') as Map<String, dynamic>;
+    return {
+      'virtualBalance': _parseDouble(data['virtualBalance']),
+      'virtualStartingBalance': _parseDouble(data['virtualStartingBalance']),
+    };
+  }
+
+  /// Wipes paper positions/orders and restores starting virtual capital.
+  Future<Map<String, double>> resetPaperPortfolio() async {
+    final data = await _client.post('/paper-trading/wallet/') as Map<String, dynamic>;
+    return {
+      'virtualBalance': _parseDouble(data['virtualBalance']),
+      'virtualStartingBalance': _parseDouble(data['virtualStartingBalance']),
+    };
+  }
+
+  // ── Paper Trading module: order book, ledger, journal, analytics, risk ──
+  // NOTE: request bodies use snake_case keys, matching every other endpoint
+  // in this file (e.g. createPriceAlert's `target_price`) — responses come
+  // back camelCase via the backend's CamelCaseSerializer/camelize(), but
+  // incoming field names are NOT auto-converted.
+
+  Future<PaperOrderModel> placePaperOrder({
+    required String symbol,
+    required String side,
+    required int quantity,
+    String orderType = 'MARKET',
+    double? limitPrice,
+    double? triggerPrice,
+  }) async {
+    final data = await _client.post('/paper-trading/place-order/', body: {
+      'symbol': symbol,
+      'side': side,
+      'quantity': quantity,
+      'order_type': orderType,
+      if (limitPrice != null) 'limit_price': limitPrice,
+      if (triggerPrice != null) 'trigger_price': triggerPrice,
+    }) as Map<String, dynamic>;
+    return parsePaperOrder(data);
+  }
+
+  Future<List<PaperOrderModel>> getPaperOrderBook({String? status}) async {
+    final data = await _client.get(
+      '/paper-trading/order-book/',
+      query: {'status': ?status},
+    );
+    return parseList(data, parsePaperOrder);
+  }
+
+  Future<PaperOrderModel> modifyPaperOrder(
+    String orderId, {
+    int? quantity,
+    double? limitPrice,
+    double? triggerPrice,
+  }) async {
+    final data = await _client.patch('/paper-trading/order-book/$orderId/', body: {
+      if (quantity != null) 'quantity': quantity,
+      if (limitPrice != null) 'limit_price': limitPrice,
+      if (triggerPrice != null) 'trigger_price': triggerPrice,
+    }) as Map<String, dynamic>;
+    return parsePaperOrder(data);
+  }
+
+  Future<PaperOrderModel> cancelPaperOrder(String orderId) async {
+    final data = await _client.delete('/paper-trading/order-book/$orderId/') as Map<String, dynamic>;
+    return parsePaperOrder(data);
+  }
+
+  Future<PaperOrderModel> exitPaperPosition(String symbol) async {
+    final data = await _client.post('/paper-trading/positions/exit/', body: {
+      'symbol': symbol,
+    }) as Map<String, dynamic>;
+    return parsePaperOrder(data);
+  }
+
+  Future<void> exitAllPaperPositions() async {
+    await _client.post('/paper-trading/positions/exit-all/');
+  }
+
+  Future<List<PaperLedgerEntryModel>> getPaperLedger() async {
+    return parseList(await _client.get('/paper-trading/ledger/'), parsePaperLedgerEntry);
+  }
+
+  Future<List<PaperJournalEntryModel>> getPaperJournal() async {
+    return parseList(await _client.get('/paper-trading/journal/'), parsePaperJournalEntry);
+  }
+
+  Future<PaperJournalEntryModel> createPaperJournalEntry({
+    required String title,
+    String notes = '',
+    String symbol = '',
+    String? tradeId,
+    String lessonLearned = '',
+    String mood = '',
+    int? rating,
+  }) async {
+    final data = await _client.post('/paper-trading/journal/', body: {
+      'title': title,
+      'notes': notes,
+      'symbol': symbol,
+      if (tradeId != null) 'trade_id': tradeId,
+      'lesson_learned': lessonLearned,
+      'mood': mood,
+      if (rating != null) 'rating': rating,
+    }) as Map<String, dynamic>;
+    return parsePaperJournalEntry(data);
+  }
+
+  Future<PaperJournalEntryModel> updatePaperJournalEntry(
+    String entryId, {
+    String? title,
+    String? notes,
+    String? lessonLearned,
+    String? mood,
+    int? rating,
+  }) async {
+    final data = await _client.patch('/paper-trading/journal/$entryId/', body: {
+      if (title != null) 'title': title,
+      if (notes != null) 'notes': notes,
+      if (lessonLearned != null) 'lesson_learned': lessonLearned,
+      if (mood != null) 'mood': mood,
+      if (rating != null) 'rating': rating,
+    }) as Map<String, dynamic>;
+    return parsePaperJournalEntry(data);
+  }
+
+  Future<void> deletePaperJournalEntry(String entryId) async {
+    await _client.delete('/paper-trading/journal/$entryId/');
+  }
+
+  Future<PaperAnalyticsModel> getPaperAnalytics() async {
+    final data = await _client.get('/paper-trading/analytics/') as Map<String, dynamic>;
+    return parsePaperAnalytics(data);
+  }
+
+  Future<PaperRiskStatusModel> getPaperRiskStatus() async {
+    final data = await _client.get('/paper-trading/risk-limits/') as Map<String, dynamic>;
+    return parsePaperRiskStatus(data);
+  }
+
+  Future<PaperRiskLimitModel> updatePaperRiskLimit({
+    double? maxDailyLoss,
+    double? maxPositionSizePercent,
+    bool? isActive,
+  }) async {
+    final data = await _client.patch('/paper-trading/risk-limits/', body: {
+      if (maxDailyLoss != null) 'max_daily_loss': maxDailyLoss,
+      if (maxPositionSizePercent != null) 'max_position_size_percent': maxPositionSizePercent,
+      if (isActive != null) 'is_active': isActive,
+    }) as Map<String, dynamic>;
+    return parsePaperRiskLimit(data);
+  }
+
   Future<List<OptionHoldingModel>> getOptionHoldings({String? assetClass}) async {
     final data = await _client.get(
       '/options/holdings/',
@@ -757,6 +915,99 @@ class BullwaveApi {
       'asset_class': assetClass,
     }) as Map<String, dynamic>;
     return parseOptionTrade(data);
+  }
+
+  // Paper options — equity F&O + commodity options, simulated, settled
+  // against the paper wallet only. Reuses OptionHoldingModel/OptionTradeModel
+  // + their parsers since the response shape is identical to the real
+  // options endpoints (only the base path and settlement differ).
+  Future<List<OptionTradeModel>> getPaperOptionOrders() async {
+    return parseList(await _client.get('/paper-trading/options/orders/'), parseOptionTrade);
+  }
+
+  Future<List<OptionHoldingModel>> getPaperOptionHoldings({String? assetClass}) async {
+    final data = await _client.get(
+      '/paper-trading/options/holdings/',
+      query: {'asset_class': ?assetClass},
+    );
+    return parseList(data, parseOptionHolding);
+  }
+
+  Future<OptionTradeModel> placePaperOptionOrder({
+    required String underlying,
+    required double strike,
+    required String optionType,
+    required DateTime expiry,
+    required String side,
+    required int quantity,
+    required double premium,
+    required String assetClass,
+  }) async {
+    final data = await _client.post('/paper-trading/options/orders/', body: {
+      'underlying': underlying,
+      'strike': strike,
+      'option_type': optionType,
+      'expiry': expiry.toIso8601String().substring(0, 10),
+      'side': side,
+      'quantity': quantity,
+      'premium': premium,
+      'asset_class': assetClass,
+    }) as Map<String, dynamic>;
+    return parseOptionTrade(data);
+  }
+
+  Future<OptionTradeModel> exitPaperOptionPosition({
+    required String underlying,
+    required double strike,
+    required String optionType,
+    required DateTime expiry,
+    required double premium,
+    required String assetClass,
+  }) async {
+    final data = await _client.post('/paper-trading/options/exit/', body: {
+      'underlying': underlying,
+      'strike': strike,
+      'option_type': optionType,
+      'expiry': expiry.toIso8601String().substring(0, 10),
+      'premium': premium,
+      'asset_class': assetClass,
+    }) as Map<String, dynamic>;
+    return parseOptionTrade(data);
+  }
+
+  // Paper commodities — same simulated-settlement pattern, reusing
+  // CommodityHoldingModel/CommodityTradeModel + parsers.
+  Future<List<CommodityTradeModel>> getPaperCommodityOrders() async {
+    return parseList(await _client.get('/paper-trading/commodities/orders/'), parseCommodityTrade);
+  }
+
+  Future<List<CommodityHoldingModel>> getPaperCommodityHoldings() async {
+    return parseList(await _client.get('/paper-trading/commodities/holdings/'), parseCommodityHolding);
+  }
+
+  Future<CommodityTradeModel> placePaperCommodityOrder({
+    required String commodityId,
+    required String side,
+    required int quantity,
+  }) async {
+    final data = await _client.post('/paper-trading/commodities/orders/', body: {
+      'commodity_id': commodityId,
+      'side': side.toUpperCase(),
+      'quantity': quantity,
+    }) as Map<String, dynamic>;
+    return parseCommodityTrade(data);
+  }
+
+  Future<CommodityTradeModel> exitPaperCommodityPosition(String commodityId) async {
+    final data = await _client.post('/paper-trading/commodities/exit/', body: {
+      'commodity_id': commodityId,
+    }) as Map<String, dynamic>;
+    return parseCommodityTrade(data);
+  }
+
+  Future<PaperPortfolioModel> getPaperPortfolio() async {
+    final data = await _client.get('/paper-trading/portfolio/') as Map<String, dynamic>;
+    return parsePaperPortfolio(data);
   }
 
   Future<({List<ScreenerStockModel> results, List<String> sectors})> getScreener({
@@ -1077,7 +1328,7 @@ class BullwaveApi {
 
   Future<PaperCompetitionModel> createPaperCompetition({
     String name = '',
-    double startingBalance = 100000,
+    double startingBalance = 1000000,
     int durationDays = 7,
   }) async {
     final data = await _client.post(

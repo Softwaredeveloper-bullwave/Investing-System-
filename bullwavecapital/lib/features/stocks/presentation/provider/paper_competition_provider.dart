@@ -50,7 +50,7 @@ class PaperCompetitionProvider extends ChangeNotifier {
 
   Future<String?> createCompetition({
     String name = '',
-    double startingBalance = 100000,
+    double startingBalance = 1000000,
     int durationDays = 7,
   }) async {
     _isSaving = true;

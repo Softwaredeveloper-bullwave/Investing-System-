@@ -150,7 +150,10 @@ class _BankVerificationKycScreenState extends State<BankVerificationKycScreen> {
                 const SizedBox(height: 24),
                 PrimaryButton(
                   label: 'Continue to Name Match',
-                  onPressed: () => context.push(AppRoutes.nameMatch),
+                  onPressed: () {
+                    context.read<KycFlowProvider>().kycPushDepth++;
+                    context.push(AppRoutes.nameMatch);
+                  },
                 ),
               ],
             ],

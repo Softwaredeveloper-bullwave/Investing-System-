@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/routes.dart';
 import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
+import '../../../../core/utils/bank_verification_guard.dart';
 import '../../../../core/widgets/custom_app_bar.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../domain/kyc_models.dart';
@@ -109,22 +110,34 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
                 if (!s.panVerified)
                   PrimaryButton(
                     label: 'Verify PAN',
-                    onPressed: () => context.push(AppRoutes.panVerification),
+                    // Tracks the push so finishKycFlow() can pop straight back
+                    // to whatever triggered this dashboard once verification
+                    // finishes. See bank_verification_guard.dart.
+                    onPressed: () {
+                      kyc.kycPushDepth++;
+                      context.push(AppRoutes.panVerification);
+                    },
                   )
                 else if (!s.bankVerified)
                   PrimaryButton(
                     label: 'Verify Bank Account',
-                    onPressed: () => context.push(AppRoutes.bankVerificationKyc),
+                    onPressed: () {
+                      kyc.kycPushDepth++;
+                      context.push(AppRoutes.bankVerificationKyc);
+                    },
                   )
                 else if (!s.nameMatchPassed)
                   PrimaryButton(
                     label: 'Run Name Match',
-                    onPressed: () => context.push(AppRoutes.nameMatch),
+                    onPressed: () {
+                      kyc.kycPushDepth++;
+                      context.push(AppRoutes.nameMatch);
+                    },
                   )
                 else
                   PrimaryButton(
                     label: 'Start Investing',
-                    onPressed: () => context.go(AppRoutes.invest),
+                    onPressed: () => finishKycFlow(context),
                   ),
               ],
             ),

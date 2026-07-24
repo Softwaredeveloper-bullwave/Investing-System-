@@ -17,6 +17,7 @@ class AppTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final bool readOnly;
   final TextCapitalization textCapitalization;
+  final VoidCallback? onTap;
 
   const AppTextField({
     super.key,
@@ -34,6 +35,7 @@ class AppTextField extends StatelessWidget {
     this.inputFormatters,
     this.readOnly = false,
     this.textCapitalization = TextCapitalization.none,
+    this.onTap,
   });
 
   @override
@@ -54,6 +56,7 @@ class AppTextField extends StatelessWidget {
           onChanged: onChanged,
           inputFormatters: inputFormatters,
           readOnly: readOnly,
+          onTap: onTap,
           textCapitalization: textCapitalization,
           decoration: InputDecoration(
             hintText: hint,

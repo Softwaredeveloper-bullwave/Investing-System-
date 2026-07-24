@@ -48,7 +48,13 @@ from .option_trading_service import (
     list_recent_option_trades,
     place_option_order,
 )
-from .trading_service import TradingError, list_recent_trades, place_paper_order
+from .trading_service import (
+    TradingError,
+    get_or_create_paper_wallet,
+    list_recent_trades,
+    place_paper_order,
+    reset_paper_portfolio,
+)
 from .portfolio_service import get_stock_portfolio
 from .portfolio_health_service import get_portfolio_health
 from .rebalance_service import analyze_portfolio_rebalance
@@ -352,7 +358,7 @@ class PriceAlertsView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
-        return MARKET_TRADE_PERMISSIONS
+        return [permission() for permission in MARKET_TRADE_PERMISSIONS]
 
     def get(self, request):
         alerts = PriceAlert.objects.filter(user=request.user).select_related('stock')
@@ -404,7 +410,7 @@ class NewsAlertsView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
-        return MARKET_TRADE_PERMISSIONS
+        return [permission() for permission in MARKET_TRADE_PERMISSIONS]
 
     def get(self, request):
         alerts = NewsAlert.objects.filter(user=request.user)
@@ -454,7 +460,7 @@ class SipPlansView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
-        return MARKET_TRADE_PERMISSIONS
+        return [permission() for permission in MARKET_TRADE_PERMISSIONS]
 
     def get(self, request):
         plans = SipPlan.objects.filter(user=request.user, is_active=True).select_related('stock')
@@ -553,6 +559,29 @@ class PaperTradingOrdersView(APIView):
         return Response(payload, status=201)
 
 
+class PaperWalletView(APIView):
+    """Virtual practice-capital balance for equity paper trading.
+
+    Fully isolated from the real money `finance.Wallet` — resetting or
+    trading here never touches funds the user actually deposited.
+    """
+
+    permission_classes = MARKET_TRADE_PERMISSIONS
+
+    def get(self, request):
+        wallet = get_or_create_paper_wallet(request.user)
+        return Response(camelize({
+            'virtualBalance': float(wallet.balance),
+            'virtualStartingBalance': float(wallet.starting_balance),
+        }))
+
+    def post(self, request):
+        """Reset the learner's paper portfolio: clears positions/orders and
+        restores starting virtual capital so they can start a fresh run."""
+        result = reset_paper_portfolio(request.user)
+        return Response(camelize({**result, 'message': 'Paper portfolio reset.'}))
+
+
 class ScreenerView(APIView):
     permission_classes = MARKET_BROWSE_PERMISSIONS
 
@@ -642,7 +671,7 @@ class CommodityOrdersView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
-        return MARKET_TRADE_PERMISSIONS
+        return [permission() for permission in MARKET_TRADE_PERMISSIONS]
 
     def get(self, request):
         return Response(camelize({'trades': list_recent_commodity_trades(request.user)}))
@@ -722,7 +751,7 @@ class OptionOrdersView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
-        return MARKET_TRADE_PERMISSIONS
+        return [permission() for permission in MARKET_TRADE_PERMISSIONS]
 
     def get(self, request):
         return Response(camelize({'trades': list_recent_option_trades(request.user)}))
@@ -787,7 +816,7 @@ class IpoOrdersView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
-        return MARKET_TRADE_PERMISSIONS
+        return [permission() for permission in MARKET_TRADE_PERMISSIONS]
 
     def get(self, request):
         from .ipo_trading_service import list_ipo_trades
@@ -1034,7 +1063,7 @@ class CopySubscriptionsView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
-        return MARKET_TRADE_PERMISSIONS
+        return [permission() for permission in MARKET_TRADE_PERMISSIONS]
 
     def get(self, request):
         from .copy_trading_service import list_subscriptions

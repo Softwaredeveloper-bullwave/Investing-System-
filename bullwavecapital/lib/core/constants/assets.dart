@@ -1,8 +1,8 @@
 class AppAssets {
   AppAssets._();
 
-  static const String logo = 'assets/svg/logo.svg';
-  static const String cbwWordmark = 'assets/svg/cbw_wordmark.svg';
+  static const String logo = 'assets/images/logo.png';
+  static const String cbwWordmark = 'assets/images/logo.png';
 
   // Bottom navigation
   static const String navHome = 'assets/svg/nav_home.svg';

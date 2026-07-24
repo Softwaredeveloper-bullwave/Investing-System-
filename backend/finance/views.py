@@ -41,8 +41,6 @@ class HomeView(APIView):
     def get(self, request):
         user = request.user
         portfolio = _build_portfolio(user, refresh_stocks=False)
-        wallet, _ = Wallet.objects.get_or_create(user=user)
-        portfolio['wallet_balance'] = wallet.balance
 
         indices = list(MarketIndex.objects.all().order_by('id')[:6])
         recent = user.transactions.all()[:5]
@@ -336,6 +334,7 @@ class TransactionListView(APIView):
 
 def _build_portfolio(user, *, refresh_stocks=False):
     from stocks.portfolio_service import get_stock_summary
+    from stocks.trading_service import get_or_create_paper_wallet
 
     stock = get_stock_summary(user, refresh=refresh_stocks)
     stock_invested = Decimal(str(stock['total_invested']))
@@ -352,8 +351,19 @@ def _build_portfolio(user, *, refresh_stocks=False):
     )
     plan_current = plan_invested + plan_profit
 
+    wallet, _ = Wallet.objects.get_or_create(user=user)
+    wallet_balance = wallet.balance
+
+    try:
+        paper_balance = get_or_create_paper_wallet(user).balance
+    except Exception:
+        paper_balance = Decimal('0')
+
     total_investment = stock_invested + plan_invested
-    current_value = stock_value + plan_current
+    # Portfolio value shown to the user combines real holdings/plans, real
+    # wallet cash, and the paper-trading virtual balance — this app is
+    # paper-trading-first, so most users' "net worth" here is simulated.
+    current_value = stock_value + plan_current + wallet_balance + paper_balance
     total_profit = stock_pnl + plan_profit
     growth = (
         float((current_value - total_investment) / total_investment * 100)
@@ -371,4 +381,6 @@ def _build_portfolio(user, *, refresh_stocks=False):
         'holdings_count': stock['holdings_count'],
         'stocks_invested': stock_invested,
         'stocks_value': stock_value,
+        'wallet_balance': wallet_balance,
+        'paper_balance': paper_balance,
     }

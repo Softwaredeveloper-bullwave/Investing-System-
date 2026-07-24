@@ -7,6 +7,7 @@ import '../../../../core/constants/dimensions.dart';
 import '../../../../core/constants/routes.dart';
 import '../../../../core/constants/shell_layout.dart';
 import '../../../../core/theme/colors.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/loading_card.dart';
 import '../../../../core/widgets/premium_ui_kit.dart';
 import '../../../../core/widgets/scale_tap.dart';
@@ -19,13 +20,18 @@ import '../../../stocks/presentation/provider/stock_features_provider.dart';
 import '../../../stocks/presentation/provider/stock_market_provider.dart';
 import '../provider/home_provider.dart';
 import '../widgets/home_theme_a.dart';
+import '../widgets/home_action_row.dart';
+import '../widgets/home_allocation_section.dart';
 import '../widgets/home_balance_cards.dart';
 import '../widgets/home_clean_header.dart';
+import '../widgets/home_hero_portfolio_card.dart';
 import '../widgets/home_ipo_section.dart';
+import '../widgets/home_popular_investments.dart';
 import '../widgets/home_quick_actions.dart';
 import '../widgets/home_recent_activity.dart';
 import '../widgets/home_search_bar.dart';
 import '../widgets/home_trending_strip.dart';
+import '../widgets/home_watchlist_section.dart';
 import '../widgets/market_overview.dart';
 import '../widgets/news_banner.dart';
 
@@ -67,9 +73,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showQuickMenu(BuildContext context) {
+    final palette = context.palette;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: palette.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -83,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: palette.textGrey.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -146,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final balance = portfolio.currentValue > 0
             ? portfolio.currentValue
             : portfolio.walletBalance;
+        final p = context.palette;
 
         return SafeArea(
           child: RefreshIndicator(
@@ -172,38 +180,38 @@ class _HomeScreenState extends State<HomeScreen> {
                         HomeSearchBar(
                           onTap: () => context.go(AppRoutes.invest),
                         ),
-                        const SizedBox(height: 22),
-                        HomePrimaryActionsRow(
+                        const SizedBox(height: 18),
+                        HomeHeroPortfolioCard(
+                          greeting: GreetingHelper.getGreeting(),
+                          subtitle: 'Track. Invest. Grow.',
+                          portfolioValue: balance,
+                          dayPnl: portfolio.dayPnl,
+                          dayPnlPercent: portfolio.dayPnlPercent,
+                          chartValues: provider.portfolioChartValues,
+                          onTap: () => context.go(AppRoutes.portfolio),
+                        ),
+                        const SizedBox(height: 16),
+                        HomeActionRow(
                           actions: [
-                            HomeQuickAction(
-                              icon: PhosphorIcons.chartLineUp,
-                              label: 'Markets',
-                              color: HomeThemeA.primary,
+                            HomeActionItem(
+                              icon: Icons.trending_up_rounded,
+                              label: 'Invest',
                               onTap: () => context.go(AppRoutes.invest),
                             ),
-                            HomeQuickAction(
-                              icon: PhosphorIcons.wallet,
-                              label: 'Wallet',
-                              color: HomeThemeA.primary,
+                            HomeActionItem(
+                              icon: Icons.autorenew_rounded,
+                              label: 'SIP',
+                              onTap: () => context.push(AppRoutes.sipTracker),
+                            ),
+                            HomeActionItem(
+                              icon: Icons.add_circle_rounded,
+                              label: 'Add Money',
                               onTap: () => context.go(AppRoutes.wallet),
                             ),
-                            HomeQuickAction(
-                              icon: PhosphorIcons.flag,
+                            HomeActionItem(
+                              icon: Icons.flag_rounded,
                               label: 'Goals',
-                              color: HomeThemeA.primary,
                               onTap: () => context.push(AppRoutes.goalPlans),
-                            ),
-                            HomeQuickAction(
-                              icon: PhosphorIcons.piggyBank,
-                              label: 'Plans',
-                              color: HomeThemeA.primary,
-                              onTap: () => context.push(AppRoutes.featuredPlansList),
-                            ),
-                            HomeQuickAction(
-                              icon: PhosphorIcons.bookmarkSimple,
-                              label: 'Saved',
-                              color: HomeThemeA.primary,
-                              onTap: () => context.push(AppRoutes.watchlist),
                             ),
                           ],
                         ),
@@ -287,6 +295,74 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        HomeAllocationSection(
+                          slices: [
+                            AllocationSlice(
+                              label: 'Equity',
+                              value: portfolio.stocksValue,
+                              color: AllocationColors.equity,
+                            ),
+                            AllocationSlice(
+                              label: 'Wallet Cash',
+                              value: portfolio.walletBalance,
+                              color: AllocationColors.cash,
+                            ),
+                            AllocationSlice(
+                              label: 'Goal Plans',
+                              value: provider.goalPlans.fold<double>(
+                                0,
+                                (sum, g) => sum + g.accumulatedAmount,
+                              ),
+                              color: AllocationColors.goals,
+                            ),
+                          ],
+                          onSeeAll: () => context.go(AppRoutes.portfolio),
+                        ),
+                        const SizedBox(height: 24),
+                        Consumer<StockMarketProvider>(
+                          builder: (context, market, _) {
+                            return HomeWatchlistSection(
+                              stocks: market.watchlistStocks,
+                              onSeeAll: () => context.push(AppRoutes.watchlist),
+                              onTapStock: (stock) =>
+                                  context.push('${AppRoutes.stockDetail}/${stock.symbol}'),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        HomePopularInvestments(
+                          items: [
+                            PopularInvestmentItem(
+                              icon: PhosphorIcons.plant,
+                              title: 'SIP Investments',
+                              subtitle: 'Build wealth consistently',
+                              tint: p.positive,
+                              onTap: () => context.push(AppRoutes.sipTracker),
+                            ),
+                            PopularInvestmentItem(
+                              icon: PhosphorIcons.diamondsFour,
+                              title: 'Featured Plans',
+                              subtitle: 'Curated growth plans',
+                              tint: AppColors.brandGold,
+                              onTap: () => context.push(AppRoutes.featuredPlansList),
+                            ),
+                            PopularInvestmentItem(
+                              icon: PhosphorIcons.chartLineUp,
+                              title: 'F&O Trading',
+                              subtitle: 'Options & index trading',
+                              tint: AppColors.blue,
+                              onTap: () => context.push(AppRoutes.optionChain),
+                            ),
+                            PopularInvestmentItem(
+                              icon: PhosphorIcons.coins,
+                              title: 'Commodities',
+                              subtitle: 'Gold, silver & energy',
+                              tint: AppColors.brandOrange,
+                              onTap: () => context.push(AppRoutes.commodities),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
                         HomeSectionHeader(
                           title: 'Featured Plans',
                           actionLabel: 'See All',
@@ -401,7 +477,7 @@ class _FeaturedPlanChip extends StatelessWidget {
               decoration: p.iconCircleDecoration(),
               child: Icon(
                 _iconForPlan(),
-                color: p.primaryDark,
+                color: p.primary,
                 size: 18,
               ),
             ),
@@ -462,7 +538,7 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.white70),
+      leading: Icon(icon, color: context.palette.textDark),
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -514,7 +590,7 @@ class _GoalPlansPromo extends StatelessWidget {
                 ),
                 child: Icon(
                   PhosphorIcons.flag,
-                  color: p.primaryDark,
+                  color: p.primary,
                   size: 22,
                 ),
               ),
@@ -543,7 +619,7 @@ class _GoalPlansPromo extends StatelessWidget {
                         Icon(
                           PhosphorIcons.arrowRight,
                           size: 14,
-                          color: p.primaryDark,
+                          color: p.primary,
                         ),
                       ],
                     ),

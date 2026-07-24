@@ -3,18 +3,24 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/premium_background.dart';
 import '../../../../core/widgets/app_brand_logo.dart';
 
 /// Onboarding-style premium shell for splash, login, OTP, and profile setup.
-/// Always renders the dark mesh look regardless of app theme mode.
+///
+/// By default renders the dark mesh look regardless of app theme mode (used
+/// by login/OTP/profile-setup, unchanged). Pass [matchAppTheme]: true to
+/// instead follow the app's actual light/dark setting — pale-lime mesh in
+/// light mode, black mesh in dark mode — as splash & onboarding now do.
 class PremiumAuthShell extends StatelessWidget {
   final Widget child;
   final Color glowPrimary;
   final Color glowSecondary;
   final Widget? topBar;
   final Widget? bottomBar;
+  final bool matchAppTheme;
 
   const PremiumAuthShell({
     super.key,
@@ -23,21 +29,25 @@ class PremiumAuthShell extends StatelessWidget {
     this.glowSecondary = AppColors.brandPink,
     this.topBar,
     this.bottomBar,
+    this.matchAppTheme = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = matchAppTheme ? Theme.of(context).brightness == Brightness.dark : true;
+    final base = isDark ? ThemeData.dark() : ThemeData.light();
+
     return Theme(
-      data: ThemeData.dark().copyWith(
+      data: base.copyWith(
         scaffoldBackgroundColor: Colors.transparent,
-        textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+        textTheme: GoogleFonts.interTextTheme(base.textTheme),
+        extensions: [isDark ? AppThemeExtension.dark : AppThemeExtension.light],
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            const ColoredBox(color: Color(0xFF000000)),
             PremiumMeshBackground(
               glowPrimary: glowPrimary,
               glowSecondary: glowSecondary,
@@ -67,20 +77,24 @@ class PremiumBrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = context.appColors.textPrimary;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 12, 16, 0),
       child: Row(
         children: [
           const AppBrandLogo(size: 32, showShadow: false, rounded: true),
           const SizedBox(width: 10),
-          Text(
-            'BullWave',
-            style: GoogleFonts.inter(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
-              fontStyle: FontStyle.italic,
-              letterSpacing: -0.5,
+          Flexible(
+            child: Text(
+              'Capital Bullwave',
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: ink,
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                fontStyle: FontStyle.italic,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           const Spacer(),
@@ -98,6 +112,7 @@ class PremiumPillTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = context.appColors.textPrimary;
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: BackdropFilter(
@@ -105,15 +120,15 @@ class PremiumPillTag extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: ink.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            border: Border.all(color: ink.withValues(alpha: 0.12)),
           ),
           child: Text(
             label,
             style: GoogleFonts.inter(
-              color: Colors.white.withValues(alpha: 0.78),
-              fontWeight: FontWeight.w500,
+              color: ink.withValues(alpha: 0.78),
+              fontWeight: FontWeight.w600,
               fontSize: 13,
               letterSpacing: 0.2,
             ),
@@ -135,7 +150,7 @@ class PremiumAuthHeadline extends StatelessWidget {
       text,
       textAlign: TextAlign.center,
       style: GoogleFonts.inter(
-        color: Colors.white,
+        color: context.appColors.textPrimary,
         fontWeight: FontWeight.w800,
         fontSize: 34,
         height: 1.08,
@@ -156,7 +171,7 @@ class PremiumAuthBody extends StatelessWidget {
       text,
       textAlign: TextAlign.center,
       style: GoogleFonts.inter(
-        color: Colors.white.withValues(alpha: 0.55),
+        color: context.appColors.textSecondary,
         fontWeight: FontWeight.w400,
         fontSize: 15,
         height: 1.65,
@@ -173,15 +188,16 @@ class PremiumGlassField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = context.appColors.textPrimary;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: ink.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: ink.withValues(alpha: 0.1)),
           ),
           child: child,
         ),
@@ -198,6 +214,8 @@ class PremiumLineIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = context.appColors.textPrimary;
+    final accent = context.appColors.primary;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(count, (i) {
@@ -210,9 +228,9 @@ class PremiumLineIndicator extends StatelessWidget {
           height: 7,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            color: active ? Colors.white : Colors.white.withValues(alpha: 0.22),
+            color: active ? accent : ink.withValues(alpha: 0.18),
             boxShadow: active
-                ? [BoxShadow(color: Colors.white.withValues(alpha: 0.35), blurRadius: 8)]
+                ? [BoxShadow(color: accent.withValues(alpha: 0.45), blurRadius: 8)]
                 : null,
           ),
         );
@@ -229,13 +247,14 @@ class PremiumThinProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Column(
       children: [
         if (label != null) ...[
           Text(
             label!,
             style: GoogleFonts.inter(
-              color: Colors.white.withValues(alpha: 0.45),
+              color: colors.textMuted,
               fontWeight: FontWeight.w600,
               fontSize: 12,
               letterSpacing: 0.4,
@@ -248,8 +267,8 @@ class PremiumThinProgress extends StatelessWidget {
           child: LinearProgressIndicator(
             value: value.clamp(0.0, 1.0),
             minHeight: 3,
-            backgroundColor: Colors.white.withValues(alpha: 0.12),
-            color: Colors.white,
+            backgroundColor: colors.textPrimary.withValues(alpha: 0.1),
+            color: colors.primary,
           ),
         ),
       ],
@@ -411,6 +430,12 @@ class _PremiumCircleIconButtonState extends State<PremiumCircleIconButton>
   Widget build(BuildContext context) {
     final canTap = widget.enabled && widget.onPressed != null && !widget.isLoading;
     final size = widget.filled ? 68.0 : 46.0;
+    // The filled CTA always uses the lime brand fill + near-black icon —
+    // these two AppThemeExtension tokens are identical in light & dark mode,
+    // so the button reads as "on brand" regardless of theme. The outline
+    // "back" button lives inside the always-dark bottom pill, so it stays dark.
+    final onPrimary = context.appColors.onPrimary;
+    final primary = context.appColors.primary;
 
     return GestureDetector(
       onTapDown: canTap ? (_) => _press.forward() : null,
@@ -431,19 +456,19 @@ class _PremiumCircleIconButtonState extends State<PremiumCircleIconButton>
             height: size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: widget.filled ? Colors.white : const Color(0xFF1E1E1E),
+              color: widget.filled ? primary : const Color(0xFF1E1E1E),
               border: widget.filled
                   ? null
                   : Border.all(color: Colors.white.withValues(alpha: 0.08)),
               boxShadow: widget.filled
                   ? [
                       BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: primary.withValues(alpha: 0.35),
                         blurRadius: 24,
                         spreadRadius: 2,
                       ),
                       BoxShadow(
-                        color: AppColors.brandPrimary.withValues(alpha: 0.15),
+                        color: AppColors.brandPink.withValues(alpha: 0.12),
                         blurRadius: 32,
                         offset: const Offset(0, 8),
                       ),
@@ -451,13 +476,13 @@ class _PremiumCircleIconButtonState extends State<PremiumCircleIconButton>
                   : null,
             ),
             child: widget.isLoading
-                ? const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+                ? Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: CircularProgressIndicator(strokeWidth: 2.5, color: onPrimary),
                   )
                 : Icon(
                     widget.icon,
-                    color: widget.filled ? Colors.black : Colors.white.withValues(alpha: 0.85),
+                    color: widget.filled ? onPrimary : Colors.white.withValues(alpha: 0.85),
                     size: widget.filled ? 28 : 20,
                   ),
           ),

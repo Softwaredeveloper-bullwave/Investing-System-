@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/api/refresh_providers.dart';
 import '../../../../core/config/app_env.dart';
+import '../../../../core/config/dev_config.dart';
 import '../../../../core/constants/routes.dart';
+import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../profile/presentation/provider/app_provider.dart';
 import '../provider/auth_provider.dart';
@@ -51,6 +56,33 @@ class _LoginScreenState extends State<LoginScreen> {
     auth.setPhoneNumber(_phoneController.text);
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
+
+    // TEMPORARY (testing, 2026-07-18) — skip OTP entirely and log straight
+    // in with whatever number was entered. Set
+    // DevConfig.skipOtpVerification back to false to restore the normal
+    // send-OTP -> OTP screen flow.
+    if (DevConfig.skipOtpVerification) {
+      final loggedIn = await auth.devLoginSkipOtp();
+      if (!mounted) return;
+      if (loggedIn) {
+        if (auth.needsProfileSetup) {
+          router.go(AppRoutes.completeProfile);
+        } else {
+          unawaited(refreshAllProviders(context));
+          router.go(AppRoutes.home);
+        }
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(auth.error ?? 'Failed to log in'),
+            backgroundColor: AppColors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     final success = await auth.sendOtp();
     if (!mounted) return;
 
@@ -85,8 +117,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthProvider>();
     final canGoBackToOnboarding =
         !context.watch<AppProvider>().hasCompletedOnboarding;
+    final colors = context.appColors;
 
     return PremiumAuthShell(
+      matchAppTheme: true,
       glowPrimary: AppColors.brandPrimary,
       glowSecondary: AppColors.brandPink,
       topBar: PremiumBrandHeader(
@@ -96,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Text(
                   'Back',
                   style: GoogleFonts.inter(
-                    color: Colors.white.withValues(alpha: 0.45),
+                    color: colors.textMuted,
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -129,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.phone,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -147,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: '9876543210',
                     hintStyle: GoogleFonts.inter(
-                      color: Colors.white.withValues(alpha: 0.25),
+                      color: colors.textMuted,
                       fontSize: 20,
                       letterSpacing: 2,
                     ),
@@ -181,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Checkbox(
                       value: auth.termsAccepted,
                       onChanged: (v) => auth.setTermsAccepted(v ?? false),
-                      side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                      side: BorderSide(color: colors.textPrimary.withValues(alpha: 0.3)),
                       activeColor: AppColors.brandPrimary,
                     ),
                   ),
@@ -194,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           text: 'I agree to the ',
                           style: GoogleFonts.inter(
                             fontSize: 13,
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: colors.textSecondary,
                             height: 1.5,
                           ),
                           children: const [

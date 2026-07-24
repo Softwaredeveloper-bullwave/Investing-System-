@@ -60,7 +60,7 @@ class AppTheme {
         ),
       ),
       listTileTheme: ListTileThemeData(
-        iconColor: colors.primaryDark,
+        iconColor: colors.primary,
         textColor: colors.textPrimary,
         titleTextStyle: GoogleFonts.inter(
           fontSize: 15,
@@ -88,8 +88,8 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isDark ? colors.primary : Colors.black,
-          foregroundColor: isDark ? colors.onPrimary : Colors.white,
+          backgroundColor: isDark ? colors.primary : colors.positive,
+          foregroundColor: colors.onPrimary,
           minimumSize: const Size(0, AppDimensions.buttonHeight),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),

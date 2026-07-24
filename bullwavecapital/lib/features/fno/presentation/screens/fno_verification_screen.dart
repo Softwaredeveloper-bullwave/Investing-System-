@@ -247,7 +247,7 @@ class _FnoVerificationScreenState extends State<FnoVerificationScreen> {
   Color _colorFor(String type) {
     switch (type) {
       case 'bank_statement':
-        return const Color(0xFF6366F1);
+        return AppColors.brandPrimary;
       case 'form16':
         return AppColors.blue;
       case 'itr':

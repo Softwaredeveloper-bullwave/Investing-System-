@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/constants/dimensions.dart';
-import '../../../../core/constants/routes.dart';
 import '../../../../core/theme/colors.dart';
+import '../../../../core/utils/bank_verification_guard.dart';
 import '../../../../core/widgets/primary_button.dart';
 
 class KycSuccessScreen extends StatelessWidget {
@@ -36,7 +35,7 @@ class KycSuccessScreen extends StatelessWidget {
               const SizedBox(height: AppDimensions.paddingXl),
               PrimaryButton(
                 label: 'Start Investing',
-                onPressed: () => context.go(AppRoutes.invest),
+                onPressed: () => finishKycFlow(context),
               ),
             ],
           ),

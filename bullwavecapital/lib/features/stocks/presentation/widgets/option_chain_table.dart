@@ -42,6 +42,15 @@ class OptionChainTable extends StatelessWidget {
   final String currencySymbol;
   final void Function(OptionContractModel contract)? onContractTap;
 
+  /// When true, the table sizes itself to its content (no internal
+  /// [Expanded]/bounded-height requirement) so it can be dropped straight
+  /// into an outer scrollable (e.g. a page-level `ListView`) instead of
+  /// needing a parent `Expanded` to hand it a fixed height. Use this when
+  /// the table sits below other variable-height content (like a chart or
+  /// underlying picker) that could otherwise squeeze it down to zero
+  /// height on shorter screens.
+  final bool shrinkWrap;
+
   const OptionChainTable({
     super.key,
     required this.contracts,
@@ -49,6 +58,7 @@ class OptionChainTable extends StatelessWidget {
     this.strikeDecimals = 0,
     this.currencySymbol = '',
     this.onContractTap,
+    this.shrinkWrap = false,
   });
 
   @override
@@ -56,12 +66,50 @@ class OptionChainTable extends StatelessWidget {
     final colors = context.appColors;
     final rows = mergeOptionChain(contracts);
     if (rows.isEmpty) {
+      if (shrinkWrap) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: Center(child: Text('No contracts')),
+        );
+      }
       return const Center(child: Text('No contracts'));
     }
 
     final maxCallOi = rows.map((r) => r.call?.oi ?? 0).fold(0, (a, b) => a > b ? a : b);
     final maxPutOi = rows.map((r) => r.put?.oi ?? 0).fold(0, (a, b) => a > b ? a : b);
     final step = _strikeStep(spot);
+
+    Widget buildRow(BuildContext context, int i) {
+      final row = rows[i];
+      final isAtm = (row.strike - spot).abs() <= step / 2;
+      return _StrikeRow(
+        row: row,
+        spot: spot,
+        isAtm: isAtm,
+        maxCallOi: maxCallOi,
+        maxPutOi: maxPutOi,
+        colors: colors,
+        strikeDecimals: strikeDecimals,
+        currencySymbol: currencySymbol,
+        onContractTap: onContractTap,
+      );
+    }
+
+    if (shrinkWrap) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TableHeader(colors: colors),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 16),
+            itemCount: rows.length,
+            itemBuilder: buildRow,
+          ),
+        ],
+      );
+    }
 
     return Column(
       children: [
@@ -70,21 +118,7 @@ class OptionChainTable extends StatelessWidget {
           child: ListView.builder(
             padding: const EdgeInsets.only(bottom: 16),
             itemCount: rows.length,
-            itemBuilder: (context, i) {
-              final row = rows[i];
-              final isAtm = (row.strike - spot).abs() <= step / 2;
-              return _StrikeRow(
-                row: row,
-                spot: spot,
-                isAtm: isAtm,
-                maxCallOi: maxCallOi,
-                maxPutOi: maxPutOi,
-                colors: colors,
-                strikeDecimals: strikeDecimals,
-                currencySymbol: currencySymbol,
-                onContractTap: onContractTap,
-              );
-            },
+            itemBuilder: buildRow,
           ),
         ),
       ],
@@ -231,6 +265,11 @@ class _StrikeRow extends StatelessWidget {
           Expanded(
             flex: 3,
             child: Column(
+              // Always reserve a second line (ATM label or a blank spacer)
+              // so every row in the table has the same two-line height —
+              // otherwise non-ATM strikes sit a few pixels higher than
+              // their CE/PE/OI neighbours (which are always two lines),
+              // producing a visibly jagged, unaligned row of text.
               children: [
                 Text(
                   row.strike.toStringAsFixed(strikeDecimals),
@@ -241,15 +280,15 @@ class _StrikeRow extends StatelessWidget {
                     color: isAtm ? AppColors.brandOrange : colors.textPrimary,
                   ),
                 ),
-                if (isAtm)
-                  Text(
-                    'ATM',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.brandOrange,
-                    ),
+                Text(
+                  isAtm ? 'ATM' : ' ',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.brandOrange,
                   ),
+                ),
               ],
             ),
           ),
@@ -285,7 +324,28 @@ class _LtpCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (contract == null) {
-      return Expanded(flex: 2, child: Text('—', textAlign: isCall ? TextAlign.end : TextAlign.start));
+      // Match the two-line (price + change) structure of a populated cell so
+      // empty strikes still line up with the rest of the column instead of
+      // sitting on a different baseline — and use a theme-aware muted color
+      // instead of the unstyled default (which renders as plain black text,
+      // invisible in dark mode).
+      return Expanded(
+        flex: 2,
+        child: Column(
+          crossAxisAlignment: isCall ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Text(
+              '—',
+              textAlign: isCall ? TextAlign.end : TextAlign.start,
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: colors.textMuted),
+            ),
+            Text(
+              ' ',
+              style: TextStyle(fontSize: 10, color: colors.textMuted),
+            ),
+          ],
+        ),
+      );
     }
     final c = contract!;
     final changeColor = c.change >= 0 ? AppColors.green : AppColors.red;
@@ -455,7 +515,7 @@ class OptionChainSummary extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             IndexFormatter.format(spot),
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 28),
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 28, color: colors.textPrimary),
           ),
           const SizedBox(height: 12),
           Row(
@@ -500,7 +560,7 @@ class _MetricChip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: TextStyle(fontSize: 10, color: colors.textMuted, fontWeight: FontWeight.w600)),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: colors.textPrimary)),
           ],
         ),
       ),

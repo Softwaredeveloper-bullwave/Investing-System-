@@ -35,17 +35,31 @@ class KycFlowProvider extends ChangeNotifier {
 
   String? error;
 
+  /// Number of KYC wizard screens (PAN → bank → name-match, or the status
+  /// dashboard) currently pushed on top of whatever screen triggered the
+  /// flow — a Buy button, a wallet action, the home banner, Profile, etc.
+  /// Each screen increments this right before pushing the next step; once
+  /// verification finishes, `finishKycFlow()` (bank_verification_guard.dart)
+  /// pops exactly this many times to land back on that original screen with
+  /// its context and in-progress action still intact, then resets it to 0.
+  int kycPushDepth = 0;
 
 
-  /// Manual admin-reviewed KYC (replaces Cashfree PAN flow).
+
+  /// Manual admin-reviewed KYC (legacy — kept for old submissions, no longer the primary path).
 
   bool get isManualKycVerified => manualStatus.isVerified;
 
-
+  /// Automated PAN (Eko) + bank + name-match flow — the primary KYC path.
+  bool get isAutomatedKycVerified => status.isFullyVerified;
 
   /// Markets & trading access.
 
-  bool get isFullyVerified => DevConfig.enabled || isManualKycVerified;
+  bool get isFullyVerified =>
+      DevConfig.enabled ||
+      DevConfig.skipKycVerification ||
+      isAutomatedKycVerified ||
+      isManualKycVerified;
 
 
 
@@ -60,6 +74,8 @@ class KycFlowProvider extends ChangeNotifier {
     statusLoaded = false;
 
     error = null;
+
+    kycPushDepth = 0;
 
     notifyListeners();
 
@@ -83,9 +99,28 @@ class KycFlowProvider extends ChangeNotifier {
 
 
 
-  /// Primary status load — uses GET /kyc/me for routing after OTP.
+  /// Primary status load — checks both the automated (Eko) flow and the
+  /// legacy manual flow so `isFullyVerified` is accurate on app start.
 
-  Future<void> loadStatus() => loadManualStatus();
+  Future<void> loadStatus() async {
+    await loadAutomatedStatus();
+    await loadManualStatus();
+  }
+
+  Future<void> loadAutomatedStatus() async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+    try {
+      status = await _kycRepo.fetchStatus();
+    } on ApiException catch (e) {
+      error = e.message;
+    } catch (e) {
+      error = _messageFromError(e, 'Could not load KYC status.');
+    }
+    isLoading = false;
+    notifyListeners();
+  }
 
 
 
@@ -154,7 +189,7 @@ class KycFlowProvider extends ChangeNotifier {
 
   // Legacy Cashfree helpers (kept for bank/payment screens if needed)
 
-  Future<bool> verifyPan(String pan, {String holderName = ''}) async {
+  Future<bool> verifyPan(String pan, {String holderName = '', String? dob}) async {
 
     isLoading = true;
 
@@ -164,7 +199,7 @@ class KycFlowProvider extends ChangeNotifier {
 
     try {
 
-      status = await _kycRepo.verifyPan(pan, holderName: holderName);
+      status = await _kycRepo.verifyPan(pan, holderName: holderName, dob: dob);
 
       isLoading = false;
 

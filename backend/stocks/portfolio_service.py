@@ -4,7 +4,7 @@ from typing import Any
 
 from .market_data_service import refresh_stocks
 from .models import StockHolding
-from .trading_service import list_recent_trades
+from .trading_service import get_or_create_paper_wallet, list_recent_trades
 
 
 def _active_holdings(user):
@@ -81,6 +81,15 @@ def get_stock_portfolio(user, refresh: bool = False) -> dict[str, Any]:
         )
     ]
 
+    try:
+        paper_wallet = get_or_create_paper_wallet(user)
+        virtual_balance = float(paper_wallet.balance)
+        virtual_starting_balance = float(paper_wallet.starting_balance)
+    except Exception:
+        virtual_balance = virtual_starting_balance = 0.0
+
+    total_equity = virtual_balance + total_value
+
     summary = {
         'total_invested': round(total_invested, 2),
         'current_value': round(total_value, 2),
@@ -89,6 +98,14 @@ def get_stock_portfolio(user, refresh: bool = False) -> dict[str, Any]:
         'day_pnl': round(day_pnl, 2),
         'day_pnl_percent': round((day_pnl / prev_value * 100) if prev_value else 0, 2),
         'holdings_count': len(rows),
+        'virtual_balance': round(virtual_balance, 2),
+        'virtual_starting_balance': round(virtual_starting_balance, 2),
+        'total_equity': round(total_equity, 2),
+        'total_equity_return_percent': round(
+            ((total_equity - virtual_starting_balance) / virtual_starting_balance * 100)
+            if virtual_starting_balance else 0,
+            2,
+        ),
     }
 
     try:

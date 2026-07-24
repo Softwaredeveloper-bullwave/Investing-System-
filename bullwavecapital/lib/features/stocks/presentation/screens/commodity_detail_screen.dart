@@ -14,6 +14,7 @@ import '../../../../core/widgets/custom_app_bar.dart';
 import '../../../../core/widgets/robinhood_card.dart';
 import '../../../../models/commodity_model.dart';
 import '../provider/commodity_provider.dart';
+import '../provider/stock_market_provider.dart';
 import '../utils/commodity_trading_flow.dart';
 import '../widgets/chart_interval_selector.dart';
 import '../widgets/stock_detail_chart.dart';
@@ -29,6 +30,7 @@ class CommodityDetailScreen extends StatefulWidget {
 
 class _CommodityDetailScreenState extends State<CommodityDetailScreen> {
   String _intervalLabel = '1D';
+  bool _chartLoading = false;
 
   String get _apiInterval {
     for (final item in stockChartIntervals) {
@@ -44,7 +46,15 @@ class _CommodityDetailScreenState extends State<CommodityDetailScreen> {
       final provider = context.read<CommodityProvider>();
       provider.loadDetail(widget.commodityId);
       provider.loadHoldings();
+      _loadChart();
     });
+  }
+
+  Future<void> _loadChart() async {
+    if (!mounted) return;
+    setState(() => _chartLoading = true);
+    await context.read<StockMarketProvider>().loadCandles(widget.commodityId, interval: _apiInterval);
+    if (mounted) setState(() => _chartLoading = false);
   }
 
   @override
@@ -78,20 +88,28 @@ class _CommodityDetailScreenState extends State<CommodityDetailScreen> {
                         children: [
                           _PriceHero(commodity: commodity, changeColor: changeColor),
                           const SizedBox(height: 14),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: TradingViewChart(
-                              symbol: commodity.id,
-                              intervalLabel: _intervalLabel,
-                              apiInterval: _apiInterval,
-                              isCommodity: true,
-                              height: 280,
+                          Consumer<StockMarketProvider>(
+                            builder: (context, market, _) => ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: TradingViewChart(
+                                key: ValueKey('${commodity.id}_$_intervalLabel'),
+                                symbol: commodity.id,
+                                intervalLabel: _intervalLabel,
+                                apiInterval: _apiInterval,
+                                isCommodity: true,
+                                fallbackCandles: market.getCandles(commodity.id, interval: _apiInterval),
+                                isLoading: _chartLoading,
+                                height: 340,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
                           ChartIntervalSelector(
                             selectedLabel: _intervalLabel,
-                            onSelected: (label) => setState(() => _intervalLabel = label),
+                            onSelected: (label) {
+                              setState(() => _intervalLabel = label);
+                              _loadChart();
+                            },
                           ),
                           const SizedBox(height: 14),
                           Row(

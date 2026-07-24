@@ -49,7 +49,7 @@ class SettingsScreen extends StatelessWidget {
                 child: ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('About'),
-                  subtitle: const Text('BullWave Invest v1.0.0'),
+                  subtitle: const Text('Capital Bullwave Invest v1.0.0'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showAboutDialog(context),
                 ),
@@ -118,9 +118,9 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('About BullWave Invest'),
+        title: const Text('About Capital Bullwave Invest'),
         content: const Text(
-          'BullWave Invest is a premium Indian investment platform helping you grow your wealth with secure, high-yield investment plans.',
+          'Capital Bullwave Invest is a premium Indian investment platform helping you grow your wealth with secure, high-yield investment plans.',
         ),
         actions: [
           TextButton(

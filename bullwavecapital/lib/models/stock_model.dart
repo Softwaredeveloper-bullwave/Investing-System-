@@ -220,6 +220,8 @@ class PaperTradeModel {
   final double? holdingAvgPrice;
   final double? unrealizedPnl;
   final double ltp;
+  final double? virtualBalance;
+  final double? virtualStartingBalance;
 
   const PaperTradeModel({
     required this.id,
@@ -238,6 +240,8 @@ class PaperTradeModel {
     this.holdingAvgPrice,
     this.unrealizedPnl,
     this.ltp = 0,
+    this.virtualBalance,
+    this.virtualStartingBalance,
   });
 
   bool get isBuy => side.toUpperCase() == 'BUY';

@@ -6,11 +6,19 @@ class RobinhoodLineChart extends StatelessWidget {
   final double height;
   final bool isPositive;
 
+  /// Optional overrides for use on dark/colored backgrounds (e.g. the
+  /// forest-green hero card), where a bright glowing line reads better
+  /// than the standard green/red semantic colors.
+  final Color? lineColorOverride;
+  final Color? fillColorOverride;
+
   const RobinhoodLineChart({
     super.key,
     required this.values,
     this.height = 120,
     this.isPositive = true,
+    this.lineColorOverride,
+    this.fillColorOverride,
   });
 
   @override
@@ -23,7 +31,9 @@ class RobinhoodLineChart extends StatelessWidget {
       child: CustomPaint(
         painter: _LineChartPainter(
           values: values,
-          lineColor: isPositive ? AppColors.green : AppColors.red,
+          lineColor: lineColorOverride ?? (isPositive ? AppColors.green : AppColors.red),
+          isPositiveLine: isPositive,
+          fillColorOverride: fillColorOverride,
         ),
       ),
     );
@@ -33,8 +43,15 @@ class RobinhoodLineChart extends StatelessWidget {
 class _LineChartPainter extends CustomPainter {
   final List<double> values;
   final Color lineColor;
+  final bool isPositiveLine;
+  final Color? fillColorOverride;
 
-  _LineChartPainter({required this.values, required this.lineColor});
+  _LineChartPainter({
+    required this.values,
+    required this.lineColor,
+    this.isPositiveLine = true,
+    this.fillColorOverride,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -68,7 +85,14 @@ class _LineChartPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [lineColor.withValues(alpha: 0.25), lineColor.withValues(alpha: 0.0)],
+        colors: isPositiveLine
+            ? [
+                (fillColorOverride ?? AppColors.brandMint).withValues(alpha: 0.35),
+                (fillColorOverride ?? AppColors.brandMint).withValues(alpha: 0.08),
+                lineColor.withValues(alpha: 0.0),
+              ]
+            : [lineColor.withValues(alpha: 0.25), lineColor.withValues(alpha: 0.0)],
+        stops: isPositiveLine ? const [0.0, 0.55, 1.0] : null,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(fillPath, fillPaint);

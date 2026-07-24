@@ -7,7 +7,7 @@ class FeaturedPlansCatalog {
   static const plans = [
     InvestmentPlanModel(
       id: 'PLAN001',
-      name: 'BullWave Alpha Premier',
+      name: 'Capital Bullwave Alpha Premier',
       minimumInvestment: 1000000,
       monthlyReturnRate: 0.25,
       monthlyReturnMin: 0.25,
@@ -19,7 +19,7 @@ class FeaturedPlansCatalog {
     ),
     InvestmentPlanModel(
       id: 'PLAN002',
-      name: 'BullWave Platinum Reserve',
+      name: 'Capital Bullwave Platinum Reserve',
       minimumInvestment: 5000000,
       monthlyReturnRate: 3,
       monthlyReturnMin: 3,
@@ -31,7 +31,7 @@ class FeaturedPlansCatalog {
     ),
     InvestmentPlanModel(
       id: 'PLAN003',
-      name: 'BullWave Sovereign Crown',
+      name: 'Capital Bullwave Sovereign Crown',
       minimumInvestment: 10000000,
       monthlyReturnRate: 4,
       monthlyReturnMin: 4,

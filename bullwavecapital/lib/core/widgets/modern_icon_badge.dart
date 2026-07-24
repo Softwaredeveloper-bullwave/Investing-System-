@@ -294,9 +294,15 @@ class _PremiumCircleIconBadge extends StatelessWidget {
           ],
         ),
         child: Center(
+          // Use `p.primary` (not `primaryDark`) for the glyph: in light
+          // mode primary is the dark forest-green (reads fine on the pale
+          // iconBg tint), and in dark mode primary is the bright emerald
+          // (reads fine on the near-black iconBg) — primaryDark is a very
+          // dark green in BOTH themes, which made icons nearly invisible
+          // against the dark-mode icon circle background.
           child: asset != null
-              ? AppSvgIcon(asset: asset!, size: glyphSize, color: p.primaryDark)
-              : Icon(icon, color: p.primaryDark, size: glyphSize),
+              ? AppSvgIcon(asset: asset!, size: glyphSize, color: p.primary)
+              : Icon(icon, color: p.primary, size: glyphSize),
         ),
       ),
     );

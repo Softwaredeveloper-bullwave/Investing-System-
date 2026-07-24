@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -75,6 +76,36 @@ class StockHolding(models.Model):
 
     class Meta:
         unique_together = ('user', 'stock')
+
+
+class PaperWallet(models.Model):
+    """Isolated virtual cash ledger for equity paper trading.
+
+    Deliberately separate from finance.Wallet (real money — Cashfree deposits
+    /payouts). Paper trading must never touch real funds; this gives each
+    learner a fixed practice balance that's debited/credited exactly like a
+    real order pad, so buying power constraints are actually taught.
+    """
+
+    DEFAULT_STARTING_BALANCE = Decimal('1000000.00')
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_wallet'
+    )
+    balance = models.DecimalField(max_digits=14, decimal_places=2, default=DEFAULT_STARTING_BALANCE)
+    starting_balance = models.DecimalField(max_digits=14, decimal_places=2, default=DEFAULT_STARTING_BALANCE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get_or_create_for(cls, user):
+        return cls.objects.get_or_create(
+            user=user,
+            defaults={
+                'balance': cls.DEFAULT_STARTING_BALANCE,
+                'starting_balance': cls.DEFAULT_STARTING_BALANCE,
+            },
+        )[0]
 
 
 class PriceAlert(models.Model):
@@ -515,7 +546,7 @@ class PaperCompetition(models.Model):
     )
     name = models.CharField(max_length=80)
     invite_code = models.CharField(max_length=10, unique=True, db_index=True)
-    starting_balance = models.DecimalField(max_digits=14, decimal_places=2, default=100000)
+    starting_balance = models.DecimalField(max_digits=14, decimal_places=2, default=1000000)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
     duration_days = models.PositiveIntegerField(default=7)
     starts_at = models.DateTimeField(auto_now_add=True)
@@ -581,6 +612,303 @@ class BlockDeal(models.Model):
 
     class Meta:
         ordering = ['-traded_at', '-value_cr']
+
+
+class PaperOrder(models.Model):
+    """Paper-trading order book — the resting/working order, distinct from
+    `PaperTrade` (the executed fill). MARKET orders execute immediately and
+    go straight to EXECUTED; LIMIT/SL-M/SL orders sit PENDING until
+    `paper_order_service.process_pending_paper_orders()` matches them against
+    live LTP (called opportunistically on every order-book read/place, and
+    by the `--paper-orders` management-command flag for real cron setups).
+
+    Never touches the real broker or `finance.Wallet` — see `PaperWallet`.
+    """
+
+    class Side(models.TextChoices):
+        BUY = 'BUY', 'Buy'
+        SELL = 'SELL', 'Sell'
+
+    class OrderType(models.TextChoices):
+        MARKET = 'MARKET', 'Market'
+        LIMIT = 'LIMIT', 'Limit'
+        SL_M = 'SL-M', 'Stop-Loss Market'
+        SL = 'SL', 'Stop-Loss Limit'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        EXECUTED = 'EXECUTED', 'Executed'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_orders'
+    )
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name='paper_orders')
+    side = models.CharField(max_length=4, choices=Side.choices)
+    order_type = models.CharField(max_length=10, choices=OrderType.choices, default=OrderType.MARKET)
+    quantity = models.PositiveIntegerField()
+    limit_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    trigger_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    executed_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    charges = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    reject_reason = models.CharField(max_length=200, blank=True, default='')
+    trade = models.ForeignKey(
+        'PaperTrade', on_delete=models.SET_NULL, null=True, blank=True, related_name='order'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    executed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['status', 'order_type']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == self.Status.PENDING
+
+
+class PaperLedgerEntry(models.Model):
+    """Immutable virtual funds transaction ledger — every credit/debit to a
+    user's `PaperWallet` gets a row here (reset, buy, sell, charges), so the
+    running balance is always auditable independent of `PaperWallet.balance`.
+    """
+
+    class EntryType(models.TextChoices):
+        RESET = 'RESET', 'Account Reset'
+        BUY = 'BUY', 'Buy Debit'
+        SELL = 'SELL', 'Sell Credit'
+        CHARGE = 'CHARGE', 'Trading Charges'
+        ADJUSTMENT = 'ADJUSTMENT', 'Adjustment'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_ledger_entries'
+    )
+    entry_type = models.CharField(max_length=12, choices=EntryType.choices)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=14, decimal_places=2)
+    description = models.CharField(max_length=200, blank=True, default='')
+    order = models.ForeignKey(
+        PaperOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='ledger_entries'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['user', 'created_at'])]
+
+
+class PaperJournalEntry(models.Model):
+    """Trading journal — structured reflection notes a learner attaches to a
+    paper trade (or a free-standing idea), separate from the generic
+    `TraderNote` model which isn't paper-trading specific.
+    """
+
+    class Mood(models.TextChoices):
+        CONFIDENT = 'confident', 'Confident'
+        NEUTRAL = 'neutral', 'Neutral'
+        ANXIOUS = 'anxious', 'Anxious'
+        FOMO = 'fomo', 'FOMO'
+        DISCIPLINED = 'disciplined', 'Disciplined'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_journal_entries'
+    )
+    trade = models.ForeignKey(
+        PaperTrade, on_delete=models.SET_NULL, null=True, blank=True, related_name='journal_entries'
+    )
+    symbol = models.CharField(max_length=20, blank=True, default='')
+    title = models.CharField(max_length=120)
+    notes = models.TextField(blank=True, default='')
+    lesson_learned = models.TextField(blank=True, default='')
+    mood = models.CharField(max_length=12, choices=Mood.choices, blank=True, default='')
+    rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['user', 'created_at'])]
+
+
+class PaperEquitySnapshot(models.Model):
+    """One equity data point per user per day (balance + mark-to-market
+    holdings value) — the raw series behind the equity curve, drawdown, and
+    other performance analytics. Populated by
+    `paper_analytics_service.record_daily_snapshot()`, called opportunistically
+    from the analytics/dashboard endpoints and by the `--paper-orders` cron.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_equity_snapshots'
+    )
+    date = models.DateField()
+    balance = models.DecimalField(max_digits=14, decimal_places=2)
+    holdings_value = models.DecimalField(max_digits=14, decimal_places=2)
+    equity = models.DecimalField(max_digits=14, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date']
+        unique_together = ('user', 'date')
+        indexes = [models.Index(fields=['user', 'date'])]
+
+
+class PaperRiskLimit(models.Model):
+    """Per-user configurable practice risk limits — daily loss cap and
+    max single-position sizing, purely advisory (never blocks an order),
+    surfaced as warnings on the dashboard so learners build risk discipline.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_risk_limit'
+    )
+    max_daily_loss = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    max_position_size_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('20.00'))
+    is_active = models.BooleanField(default=True)
+    last_daily_warning_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get_or_create_for(cls, user):
+        return cls.objects.get_or_create(
+            user=user,
+            defaults={'max_daily_loss': PaperWallet.DEFAULT_STARTING_BALANCE * Decimal('0.05')},
+        )[0]
+
+
+class PaperOptionHolding(models.Model):
+    """Paper F&O / commodity-option position — mirrors `OptionHolding` but is
+    settled entirely against `PaperWallet`. Kept as a distinct model (rather
+    than reusing `OptionHolding`) so paper and real option books can never
+    cross-contaminate, matching the same isolation `PaperWallet` gives
+    equities."""
+
+    class AssetClass(models.TextChoices):
+        EQUITY_FNO = 'equity_fno', 'Equity F&O'
+        COMMODITY = 'commodity', 'Commodity'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_option_holdings'
+    )
+    underlying = models.CharField(max_length=20, db_index=True)
+    asset_class = models.CharField(max_length=20, choices=AssetClass.choices, default=AssetClass.EQUITY_FNO)
+    strike = models.DecimalField(max_digits=12, decimal_places=4)
+    option_type = models.CharField(max_length=2)
+    expiry = models.DateField()
+    quantity = models.PositiveIntegerField()
+    avg_premium = models.DecimalField(max_digits=12, decimal_places=4)
+    lot_size = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = ('user', 'underlying', 'strike', 'option_type', 'expiry', 'asset_class')
+        indexes = [models.Index(fields=['user', 'underlying'])]
+
+
+class PaperOptionOrder(models.Model):
+    """Executed paper option fill — options are immediate-execution in this
+    app (real `OptionTrade` has no resting order book either), so this
+    doubles as both the order and the trade record."""
+
+    class Side(models.TextChoices):
+        BUY = 'BUY', 'Buy'
+        SELL = 'SELL', 'Sell'
+
+    class AssetClass(models.TextChoices):
+        EQUITY_FNO = 'equity_fno', 'Equity F&O'
+        COMMODITY = 'commodity', 'Commodity'
+
+    class Status(models.TextChoices):
+        EXECUTED = 'EXECUTED', 'Executed'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_option_orders'
+    )
+    underlying = models.CharField(max_length=20, db_index=True)
+    asset_class = models.CharField(max_length=20, choices=AssetClass.choices, default=AssetClass.EQUITY_FNO)
+    strike = models.DecimalField(max_digits=12, decimal_places=4)
+    option_type = models.CharField(max_length=2)
+    expiry = models.DateField()
+    side = models.CharField(max_length=4, choices=Side.choices)
+    quantity = models.PositiveIntegerField()
+    premium = models.DecimalField(max_digits=12, decimal_places=4)
+    lot_size = models.PositiveIntegerField(default=1)
+    amount_inr = models.DecimalField(max_digits=14, decimal_places=2)
+    avg_premium = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    realized_pnl_inr = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    charges = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.EXECUTED)
+    reject_reason = models.CharField(max_length=200, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['user', 'underlying']),
+        ]
+
+
+class PaperCommodityHolding(models.Model):
+    """Paper commodity position — mirrors `CommodityHolding`, settled
+    against `PaperWallet`."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_commodity_holdings'
+    )
+    commodity_id = models.CharField(max_length=20, db_index=True)
+    quantity = models.PositiveIntegerField()
+    avg_price_usd = models.DecimalField(max_digits=14, decimal_places=4)
+
+    class Meta:
+        unique_together = ('user', 'commodity_id')
+
+
+class PaperCommodityOrder(models.Model):
+    """Executed paper commodity fill — immediate-execution, mirrors
+    `CommodityTrade`."""
+
+    class Side(models.TextChoices):
+        BUY = 'BUY', 'Buy'
+        SELL = 'SELL', 'Sell'
+
+    class Status(models.TextChoices):
+        EXECUTED = 'EXECUTED', 'Executed'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='paper_commodity_orders'
+    )
+    commodity_id = models.CharField(max_length=20, db_index=True)
+    side = models.CharField(max_length=4, choices=Side.choices)
+    quantity = models.PositiveIntegerField()
+    price_usd = models.DecimalField(max_digits=14, decimal_places=4)
+    amount_inr = models.DecimalField(max_digits=14, decimal_places=2)
+    usd_inr_rate = models.DecimalField(max_digits=10, decimal_places=4)
+    avg_cost_usd = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    realized_pnl_inr = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    charges = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.EXECUTED)
+    reject_reason = models.CharField(max_length=200, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['user', 'created_at'])]
 
 
 class DarkPoolPrint(models.Model):

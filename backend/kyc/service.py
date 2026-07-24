@@ -10,6 +10,9 @@ from django.utils import timezone
 from accounts.models import BankAccount, User
 from services.providers.cashfree_config import cashfree_settings
 from services.providers.cashfree_secure_id import CashfreeSecureIdError
+from services.providers.eko_config import eko_settings
+from services.providers.eko_pan import EkoPanError
+from services.providers.eko_pan import verify_pan as verify_pan_with_eko
 from core.integrations.cashfree_bypass import verify_bank_with_bypass, verify_pan_with_bypass
 
 from .masking import mask_account_number, mask_pan
@@ -26,6 +29,23 @@ NAME_MATCH_PASS = frozenset({'DIRECT_MATCH', 'GOOD_PARTIAL_MATCH', 'MODERATE_PAR
 
 def _cashfree_pan(pan: str, holder_name: str) -> dict:
     return verify_pan_with_bypass(pan, holder_name)
+
+
+def _pan_provider_configured() -> bool:
+    return eko_settings().is_configured or cashfree_settings().is_configured
+
+
+def _run_pan_verification(user, pan: str, holder_name: str, dob=None) -> dict:
+    """Verify PAN via Eko (preferred, if configured) or Cashfree/sandbox bypass."""
+    if eko_settings().is_configured:
+        dob = dob or user.date_of_birth
+        if not dob:
+            raise EkoPanError(
+                'Enter your date of birth to verify PAN.',
+                'dob_required',
+            )
+        return verify_pan_with_eko(pan, holder_name, dob.isoformat())
+    return _cashfree_pan(pan, holder_name)
 
 
 def _cashfree_bank(*, bank_account: str, ifsc: str, name: str, phone: str) -> dict:
@@ -66,7 +86,7 @@ def _name_similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, _normalize_name(a), _normalize_name(b)).ratio()
 
 
-def verify_pan_step(user, pan: str, holder_name: str = '') -> KycProfile:
+def verify_pan_step(user, pan: str, holder_name: str = '', dob=None) -> KycProfile:
     pan = pan.upper().strip()
     if not PAN_REGEX.match(pan):
         raise ValueError('Invalid PAN format.')
@@ -74,17 +94,21 @@ def verify_pan_step(user, pan: str, holder_name: str = '') -> KycProfile:
     profile = get_or_create_profile(user)
     _audit(user, VerificationAuditLog.Step.PAN, VerificationAuditLog.Status.STARTED, {'pan': mask_pan(pan)})
 
-    if not cashfree_settings().is_configured:
-        raise CashfreeSecureIdError('Cashfree Secure ID is not configured.')
+    if not _pan_provider_configured():
+        raise CashfreeSecureIdError('No PAN verification provider is configured (Eko or Cashfree).')
 
     try:
-        result = _cashfree_pan(pan, holder_name or profile.pan_name or user.name)
-    except CashfreeSecureIdError as exc:
+        result = _run_pan_verification(user, pan, holder_name or profile.pan_name or user.name, dob)
+    except (CashfreeSecureIdError, EkoPanError) as exc:
         profile.pan_status = KycProfile.VerificationStatus.FAILED
         profile.pan_failure_reason = str(exc)[:280]
         profile.save(update_fields=['pan_status', 'pan_failure_reason'])
         _audit(user, VerificationAuditLog.Step.PAN, VerificationAuditLog.Status.FAILED, message=str(exc))
         raise
+
+    if dob and not user.date_of_birth:
+        user.date_of_birth = dob
+        user.save(update_fields=['date_of_birth'])
 
     profile.pan_number = pan
     profile.pan_name = result['registered_name'] or holder_name

@@ -329,7 +329,7 @@ Future<void> showCreateCompetitionSheet(BuildContext context) async {
 
   final p = context.palette;
   final nameController = TextEditingController();
-  final balanceController = TextEditingController(text: '100000');
+  final balanceController = TextEditingController(text: '1000000');
   var days = 7;
 
   final ok = await showModalBottomSheet<bool>(
@@ -408,7 +408,7 @@ Future<void> showCreateCompetitionSheet(BuildContext context) async {
   final provider = context.read<PaperCompetitionProvider>();
   final err = await provider.createCompetition(
     name: nameController.text.trim(),
-    startingBalance: double.tryParse(balanceController.text.trim()) ?? 100000,
+    startingBalance: double.tryParse(balanceController.text.trim()) ?? 1000000,
     durationDays: days,
   );
   if (!context.mounted) return;

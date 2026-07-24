@@ -18,6 +18,7 @@ from .views import (
     OptionHoldingsView,
     OptionOrdersView,
     PaperTradingOrdersView,
+    PaperWalletView,
     PortfolioAnalyticsView,
     PortfolioHoldingsView,
     PortfolioOverviewView,
@@ -57,6 +58,27 @@ from .views import (
     BlockDealsView,
     DarkPoolPrintsView,
 )
+from .paper_trading_views import (
+    ExitAllPositionsView,
+    ExitPositionView,
+    OrderBookView,
+    OrderDetailView,
+    PaperAnalyticsView,
+    PaperJournalDetailView,
+    PaperJournalView,
+    PaperLedgerView,
+    PaperRiskLimitView,
+    PlaceOrderView,
+)
+from .paper_option_commodity_views import (
+    PaperCommodityExitView,
+    PaperCommodityHoldingsView,
+    PaperCommodityOrderView,
+    PaperOptionExitView,
+    PaperOptionHoldingsView,
+    PaperOptionOrderView,
+    PaperPortfolioView,
+)
 
 urlpatterns = [
     path('market/live/', MarketLiveView.as_view(), name='market-live'),
@@ -95,6 +117,7 @@ urlpatterns = [
     path('options/orders/', OptionOrdersView.as_view(), name='option-orders'),
     path('options/holdings/', OptionHoldingsView.as_view(), name='option-holdings'),
     path('paper-trading/orders/', PaperTradingOrdersView.as_view(), name='paper-trading'),
+    path('paper-trading/wallet/', PaperWalletView.as_view(), name='paper-trading-wallet'),
     path('screener/', ScreenerView.as_view(), name='screener'),
     path('dividends/', DividendsView.as_view(), name='dividends'),
     path('ipo/calendar/', IpoCalendarView.as_view(), name='ipo-calendar'),
@@ -124,4 +147,27 @@ urlpatterns = [
     ),
     path('market/block-deals/', BlockDealsView.as_view(), name='block-deals'),
     path('market/dark-pool/', DarkPoolPrintsView.as_view(), name='dark-pool'),
+    # Paper trading module — order book (market/limit/SL-M/SL), positions,
+    # ledger, journal, analytics, risk limits. Additive alongside the legacy
+    # market-only paper-trading/orders/ + paper-trading/wallet/ above.
+    path('paper-trading/place-order/', PlaceOrderView.as_view(), name='paper-place-order'),
+    path('paper-trading/order-book/', OrderBookView.as_view(), name='paper-order-book'),
+    path('paper-trading/order-book/<uuid:order_id>/', OrderDetailView.as_view(), name='paper-order-detail'),
+    path('paper-trading/positions/exit/', ExitPositionView.as_view(), name='paper-exit-position'),
+    path('paper-trading/positions/exit-all/', ExitAllPositionsView.as_view(), name='paper-exit-all-positions'),
+    path('paper-trading/ledger/', PaperLedgerView.as_view(), name='paper-ledger'),
+    path('paper-trading/journal/', PaperJournalView.as_view(), name='paper-journal'),
+    path('paper-trading/journal/<uuid:entry_id>/', PaperJournalDetailView.as_view(), name='paper-journal-detail'),
+    path('paper-trading/analytics/', PaperAnalyticsView.as_view(), name='paper-analytics'),
+    path('paper-trading/risk-limits/', PaperRiskLimitView.as_view(), name='paper-risk-limits'),
+    # Paper trading — options (equity F&O + commodity options) and
+    # commodities, same PaperWallet as equities, so the whole practice
+    # account behaves like one unified simulated trading account.
+    path('paper-trading/options/orders/', PaperOptionOrderView.as_view(), name='paper-option-orders'),
+    path('paper-trading/options/holdings/', PaperOptionHoldingsView.as_view(), name='paper-option-holdings'),
+    path('paper-trading/options/exit/', PaperOptionExitView.as_view(), name='paper-option-exit'),
+    path('paper-trading/commodities/orders/', PaperCommodityOrderView.as_view(), name='paper-commodity-orders'),
+    path('paper-trading/commodities/holdings/', PaperCommodityHoldingsView.as_view(), name='paper-commodity-holdings'),
+    path('paper-trading/commodities/exit/', PaperCommodityExitView.as_view(), name='paper-commodity-exit'),
+    path('paper-trading/portfolio/', PaperPortfolioView.as_view(), name='paper-portfolio'),
 ]

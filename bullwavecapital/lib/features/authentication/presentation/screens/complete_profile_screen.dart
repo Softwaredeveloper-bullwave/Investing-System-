@@ -10,6 +10,7 @@ import '../../../../core/api/api_config.dart';
 import '../../../../core/api/refresh_providers.dart';
 import '../../../../core/constants/dimensions.dart';
 import '../../../../core/constants/routes.dart';
+import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/custom_dialog.dart';
@@ -162,9 +163,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       avatarImage = NetworkImage(resolvedUrl);
     }
 
+    final colors = context.appColors;
+
     return PopScope(
       canPop: false,
       child: PremiumAuthShell(
+        matchAppTheme: true,
         glowPrimary: AppColors.brandPink,
         glowSecondary: AppColors.brandPrimary,
         topBar: const PremiumBrandHeader(),
@@ -197,10 +201,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 52,
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        backgroundColor: colors.textPrimary.withValues(alpha: 0.06),
                         backgroundImage: avatarImage,
                         child: avatarImage == null
-                            ? Icon(Icons.person, size: 44, color: Colors.white.withValues(alpha: 0.5))
+                            ? Icon(Icons.person, size: 44, color: colors.textMuted)
                             : null,
                       ),
                       Positioned(
@@ -211,11 +215,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           child: Container(
                             width: 40,
                             height: 40,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white,
+                              color: colors.primary,
                             ),
-                            child: const Icon(Icons.camera_alt_rounded, color: Colors.black, size: 18),
+                            child: Icon(Icons.camera_alt_rounded, color: colors.onPrimary, size: 18),
                           ),
                         ),
                       ),

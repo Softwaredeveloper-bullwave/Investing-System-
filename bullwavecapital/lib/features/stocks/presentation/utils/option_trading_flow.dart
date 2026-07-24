@@ -80,14 +80,25 @@ String optionExpiryLabel(DateTime expiry) => DateFormatter.expiryLabel(
       expiry.toIso8601String().substring(0, 10),
     );
 
+// NSE/BSE index F&O lot sizes — revised effective January 2026, current as
+// of Jul 2026. Kept in sync with `option_trading_service.LOT_SIZES` on the
+// backend. Individual stock F&O lot sizes aren't tracked yet (they vary per
+// stock and are revised periodically); unlisted symbols fall back to 1.
 int optionLotSize(String underlying, String assetClass) {
   if (assetClass == 'commodity') return 1;
   switch (underlying.toUpperCase()) {
     case 'NIFTY':
+      return 65;
     case 'FINNIFTY':
-      return 25;
+      return 60;
     case 'BANKNIFTY':
-      return 15;
+      return 30;
+    case 'MIDCPNIFTY':
+      return 120;
+    case 'SENSEX':
+      return 20;
+    case 'BANKEX':
+      return 30;
     default:
       return 1;
   }

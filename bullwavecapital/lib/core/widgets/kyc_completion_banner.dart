@@ -15,11 +15,18 @@ class KycCompletionBanner extends StatelessWidget {
     final kyc = context.watch<KycFlowProvider>();
     if (kyc.isFullyVerified) return const SizedBox.shrink();
 
+    final entryRoute = kyc.status.panVerified ? AppRoutes.kyc : AppRoutes.panVerification;
     return PremiumAlertBanner(
       message: 'Complete KYC to trade stocks, deposit, and withdraw.',
       type: PremiumAlertType.info,
       actionLabel: 'Verify',
-      onAction: () => context.push(AppRoutes.kycSubmit),
+      onAction: () {
+        // Track the push so finishKycFlow() (bank_verification_guard.dart)
+        // pops back to whichever screen showed this banner once verification
+        // completes, instead of dumping the user elsewhere.
+        kyc.kycPushDepth = 1;
+        context.push(entryRoute);
+      },
     );
   }
 }

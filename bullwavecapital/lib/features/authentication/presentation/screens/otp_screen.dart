@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/api/refresh_providers.dart';
 import '../../../../core/config/app_env.dart';
 import '../../../../core/constants/routes.dart';
+import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/widgets/otp_box.dart';
 import '../provider/auth_provider.dart';
@@ -143,8 +144,10 @@ class _OtpScreenState extends State<OtpScreen> {
     final canResend = _secondsRemaining == 0 && !_isResending;
     final isBusy = auth.isLoading || _isVerifying;
     final canVerify = _otp.replaceAll(RegExp(r'\D'), '').length == 6 && !isBusy;
+    final colors = context.appColors;
 
     return PremiumAuthShell(
+      matchAppTheme: true,
       glowPrimary: AppColors.brandCyan,
       glowSecondary: AppColors.brandPrimary,
       topBar: const PremiumBrandHeader(),
@@ -183,7 +186,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.75),
+                        color: colors.textSecondary,
                         height: 1.4,
                       ),
                     ),
@@ -194,16 +197,16 @@ class _OtpScreenState extends State<OtpScreen> {
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.green.withValues(alpha: 0.12),
+                      color: colors.positive.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.green.withValues(alpha: 0.35)),
+                      border: Border.all(color: colors.positive.withValues(alpha: 0.35)),
                     ),
                     child: Text(
                       'Dev OTP: ${auth.devOtp}',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w700,
-                        color: AppColors.greenSoft,
+                        color: colors.positive,
                         letterSpacing: 3,
                       ),
                     ),
@@ -236,7 +239,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     : Text(
                         'Resend in 0:${_secondsRemaining.toString().padLeft(2, '0')}',
                         style: GoogleFonts.inter(
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: colors.textMuted,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),

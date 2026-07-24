@@ -6,7 +6,7 @@ from django.db import migrations
 FEATURED_PLANS = [
     {
         'id': 'PLAN001',
-        'name': 'BullWave Alpha Premier',
+        'name': 'Capital Bullwave Alpha Premier',
         'minimum_investment': Decimal('1000000'),
         'monthly_return_rate': Decimal('0.25'),
         'monthly_return_min': Decimal('0.25'),
@@ -21,7 +21,7 @@ FEATURED_PLANS = [
     },
     {
         'id': 'PLAN002',
-        'name': 'BullWave Platinum Reserve',
+        'name': 'Capital Bullwave Platinum Reserve',
         'minimum_investment': Decimal('5000000'),
         'monthly_return_rate': Decimal('3.00'),
         'monthly_return_min': Decimal('3.00'),
@@ -36,7 +36,7 @@ FEATURED_PLANS = [
     },
     {
         'id': 'PLAN003',
-        'name': 'BullWave Sovereign Crown',
+        'name': 'Capital Bullwave Sovereign Crown',
         'minimum_investment': Decimal('10000000'),
         'monthly_return_rate': Decimal('4.00'),
         'monthly_return_min': Decimal('4.00'),

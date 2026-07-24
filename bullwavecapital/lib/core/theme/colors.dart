@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // ── Brand (Neobank lime) ──
-  static const Color brandPrimary = Color(0xFFC6FF00);
-  static const Color brandPrimaryDark = Color(0xFF0A0A0A);
-  static const Color brandPrimaryLight = Color(0xFFF0FFD6);
+  // ── Brand (Forest Green — premium fintech) ──
+  static const Color brandPrimary = Color(0xFF083007);
+  static const Color brandPrimaryDark = Color(0xFF041C04);
+  static const Color brandPrimaryLight = Color(0xFF6EE7B7);
+  static const Color brandMint = Color(0xFF6EE7B7);
   static const Color brandPink = Color(0xFFFF6B9D);
   static const Color brandPinkLight = Color(0xFFFF8FB3);
   static const Color brandMagenta = Color(0xFFA855F7);
@@ -72,7 +73,8 @@ class AppColors {
   static const LinearGradient heroGradientLight = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF00D4AA), Color(0xFF627DFF)],
+    colors: [brandPrimary, green, brandMint],
+    stops: [0.0, 0.55, 1.0],
   );
 
   static const LinearGradient heroGradientDark = LinearGradient(
@@ -90,7 +92,8 @@ class AppColors {
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [brandPrimary, Color(0xFF627DFF)],
+    colors: [brandPrimary, green, brandMint],
+    stops: [0.0, 0.6, 1.0],
   );
 
   static const LinearGradient primaryGradient = accentGradient;
@@ -151,7 +154,7 @@ class AppColors {
   static const LinearGradient chartFillGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x4000D4AA), Color(0x0000D4AA)],
+    colors: [Color(0x666EE7B7), Color(0x0016A34A)],
   );
 
   static const LinearGradient greenGlowGradient = LinearGradient(
@@ -208,7 +211,7 @@ class AppColors {
 
   // Light mode explore card tokens
   static const Color exploreCardBackground = Color(0xFFFFFFFF);
-  static const Color exploreCardTint = Color(0xFFF0FFD6);
-  static const Color exploreLabelMuted = Color(0xFF737373);
-  static const Color exploreLabelPrimary = Color(0xFF000000);
+  static const Color exploreCardTint = Color(0xFFE3F5E8);
+  static const Color exploreLabelMuted = Color(0xFF64748B);
+  static const Color exploreLabelPrimary = Color(0xFF1E293B);
 }

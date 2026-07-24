@@ -38,8 +38,19 @@ class LoadingList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(itemCount, (_) => LoadingCard(height: itemHeight)),
+    // ListView (not Column) — most call sites drop this straight into a
+    // Scaffold body via Padding with no scroll wrapper, so a plain Column
+    // overflows ("RenderFlex overflowed") on any screen short enough that
+    // itemCount * (itemHeight + margin) exceeds the available height (e.g.
+    // IPO Calendar's 5 * 128 = 640 vs. a ~574 tall body). shrinkWrap keeps it
+    // sized-to-content like the old Column (so it still nests fine inside
+    // other scrollables), but being a real scroll view means it clips/scrolls
+    // instead of throwing the overflow assertion when it doesn't fit.
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      itemCount: itemCount,
+      itemBuilder: (context, _) => LoadingCard(height: itemHeight),
     );
   }
 }

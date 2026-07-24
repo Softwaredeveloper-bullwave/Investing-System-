@@ -4,6 +4,7 @@ from finance.profit_service import credit_monthly_investment_returns
 from finance.goal_service import process_due_goal_contributions, send_upcoming_reminders
 from stocks.alert_service import process_price_alerts
 from stocks.news_alert_service import process_news_alerts
+from stocks.paper_order_service import process_pending_paper_orders
 from stocks.rebalance_service import process_portfolio_rebalance_automation
 from stocks.sip_service import process_due_sip_installments
 
@@ -18,12 +19,17 @@ class Command(BaseCommand):
         parser.add_argument('--profits', action='store_true', help='Credit monthly investment returns')
         parser.add_argument('--goals', action='store_true', help='Process goal plan installments')
         parser.add_argument('--rebalance', action='store_true', help='AI portfolio rebalancing notifications')
+        parser.add_argument(
+            '--paper-orders', action='store_true',
+            help='Match pending paper-trading LIMIT/SL-M/SL orders against live prices',
+        )
         parser.add_argument('--all', action='store_true', help='Run all jobs')
 
     def handle(self, *args, **options):
         run_all = options['all'] or not any([
             options['sip'], options['alerts'], options['news_alerts'],
             options['profits'], options['goals'], options['rebalance'],
+            options['paper_orders'],
         ])
 
         if run_all or options['sip']:
@@ -54,3 +60,7 @@ class Command(BaseCommand):
         if run_all or options['rebalance']:
             count = process_portfolio_rebalance_automation()
             self.stdout.write(self.style.SUCCESS(f'Rebalance: sent {count} AI notification(s).'))
+
+        if run_all or options['paper_orders']:
+            filled = process_pending_paper_orders()
+            self.stdout.write(self.style.SUCCESS(f'Paper orders: filled {len(filled)} pending order(s).'))

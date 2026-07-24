@@ -52,7 +52,7 @@ class _PrimaryActionTile extends StatelessWidget {
             width: 50,
             height: 50,
             decoration: p.iconCircleDecoration(),
-            child: Icon(action.icon, size: 22, color: p.primaryDark),
+            child: Icon(action.icon, size: 22, color: p.primary),
           ),
           const SizedBox(height: 8),
           Text(

@@ -316,6 +316,23 @@ def refresh_all_indices():
     return refreshed
 
 
+class _VirtualCandle:
+    """Duck-typed stand-in for `StockCandle` — has the same attributes
+    `StockCandleSerializer` reads (time/open_price/high/low/close/volume)
+    without needing a `Stock` row. Used for index symbols (NIFTY, SENSEX,
+    ...), which aren't individual equities and were never seeded into the
+    `Stock` table, so the normal DB-persisted candle path can't apply to
+    them — see `get_live_candles` below."""
+
+    def __init__(self, c):
+        self.time = datetime.fromtimestamp(c['time'], tz=dt_timezone.utc)
+        self.open_price = Decimal(str(round(c['open'], 2)))
+        self.high = Decimal(str(round(c['high'], 2)))
+        self.low = Decimal(str(round(c['low'], 2)))
+        self.close = Decimal(str(round(c['close'], 2)))
+        self.volume = int(c.get('volume', 0) or 0)
+
+
 def get_live_candles(symbol, interval='1d', fast=False):
     """Historical candles from Finnhub/Yahoo. Does not refresh live quote (too slow)."""
     symbol = symbol.upper()
@@ -329,6 +346,37 @@ def get_live_candles(symbol, interval='1d', fast=False):
     cached = cache.get(cache_key)
     if cached:
         return cached
+
+    if symbol in FNO_INDICES:
+        # Indices (NIFTY, BANKNIFTY, SENSEX, ...) have no `Stock` row and
+        # are never persisted as `StockCandle`s — fetch straight from the
+        # live provider (which already resolves index tickers correctly,
+        # e.g. NIFTY -> ^NSEI) and skip the DB-backed path entirely.
+        candle_limit = 180 if interval == '90d' else (90 if interval == '1d' else 120)
+        raw = get_candles(symbol, resolution=resolution, days=days)
+        candles = [_VirtualCandle(c) for c in raw[-candle_limit:]] if raw else []
+        if candles:
+            cache.set(cache_key, candles, 300)
+        return candles
+
+    from .commodity_service import COMMODITY_CATALOG
+
+    if symbol in COMMODITY_CATALOG:
+        # Commodities (GOLD, SILVER, CRUDE_OIL, ...) also have no `Stock`
+        # row — fetch history directly from their Yahoo futures ticker
+        # (e.g. GOLD -> GC=F). Uses its own fetcher rather than the generic
+        # `get_candles()` path because that one force-appends `.NS` to any
+        # ticker that isn't an index/already `.NS`, which corrupts futures
+        # tickers like `GC=F` into the invalid `GC=F.NS`.
+        candle_limit = 180 if interval == '90d' else (90 if interval == '1d' else 120)
+        from .yahoo_client import fetch_futures_candles
+
+        yahoo_ticker = COMMODITY_CATALOG[symbol]['yahoo']
+        raw = fetch_futures_candles(yahoo_ticker, resolution=resolution, days=days)
+        candles = [_VirtualCandle(c) for c in raw[-candle_limit:]] if raw else []
+        if candles:
+            cache.set(cache_key, candles, 300)
+        return candles
 
     try:
         stock = Stock.objects.get(symbol=symbol)

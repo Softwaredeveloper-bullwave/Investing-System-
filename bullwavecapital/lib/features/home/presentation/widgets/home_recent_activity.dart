@@ -146,7 +146,7 @@ class _ActivityTile extends StatelessWidget {
                   : isInvestment
                       ? PhosphorIcons.piggyBank
                       : PhosphorIcons.arrowsLeftRight,
-              color: isProfit || isInvestment ? p.primaryDark : p.textGrey,
+              color: isProfit || isInvestment ? p.primary : p.textGrey,
               size: 20,
             ),
           ),

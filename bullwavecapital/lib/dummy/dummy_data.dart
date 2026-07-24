@@ -38,7 +38,7 @@ class DummyData {
 
   static const InvestmentPlanModel defaultPlan = InvestmentPlanModel(
     id: 'PLAN001',
-    name: 'BullWave Premium Plan',
+    name: 'Capital Bullwave Premium Plan',
     minimumInvestment: 1000000,
     monthlyReturnRate: 1.5,
     annualReturnRate: 18.0,
@@ -50,7 +50,7 @@ class DummyData {
     defaultPlan,
     const InvestmentPlanModel(
       id: 'PLAN002',
-      name: 'BullWave Growth Plan',
+      name: 'Capital Bullwave Growth Plan',
       minimumInvestment: 500000,
       monthlyReturnRate: 1.2,
       annualReturnRate: 14.4,
@@ -59,7 +59,7 @@ class DummyData {
     ),
     const InvestmentPlanModel(
       id: 'PLAN003',
-      name: 'BullWave Elite Plan',
+      name: 'Capital Bullwave Elite Plan',
       minimumInvestment: 5000000,
       monthlyReturnRate: 2.0,
       annualReturnRate: 24.0,
@@ -243,7 +243,7 @@ class DummyData {
     pendingReferrals: 1,
     totalRewards: 2500,
     rewardPerReferral: 500,
-    shareMessage: 'Join me on BullWave Invest! Use code RAHUL2024',
+    shareMessage: 'Join me on Capital Bullwave Invest! Use code RAHUL2024',
     hasAppliedReferral: false,
     appliedReferralCode: '',
     rewardsHistory: [

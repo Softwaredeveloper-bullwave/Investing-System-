@@ -25,7 +25,7 @@ Terms & Conditions
 
 Last updated: January 2025
 
-By using BullWave Invest, you agree to these Terms and Conditions.
+By using Capital Bullwave Invest, you agree to these Terms and Conditions.
 
 Investment Disclaimer
 Investments are subject to market risks. Past performance is not indicative of future returns. Please read all scheme-related documents carefully before investing.

@@ -165,7 +165,7 @@ class _SmsQuerySheetState extends State<_SmsQuerySheet> {
   void initState() {
     super.initState();
     _controller = TextEditingController(
-      text: 'Hi BullWave team,\n\nI need help with:\n\n',
+      text: 'Hi Capital Bullwave team,\n\nI need help with:\n\n',
     );
   }
 
@@ -279,7 +279,7 @@ class _EmailQuerySheetState extends State<_EmailQuerySheet> {
     super.initState();
     _subjectController = TextEditingController(text: SupportContact.emailSubject);
     _messageController = TextEditingController(
-      text: 'Hi BullWave team,\n\nI need help with:\n\n',
+      text: 'Hi Capital Bullwave team,\n\nI need help with:\n\n',
     );
   }
 

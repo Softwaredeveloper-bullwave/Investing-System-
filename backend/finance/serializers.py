@@ -45,6 +45,7 @@ class PortfolioSerializer(CamelCaseSerializer):
     stocks_invested = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
     stocks_value = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
     wallet_balance = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    paper_balance = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
 
 
 class WalletSerializer(CamelCaseModelSerializer):

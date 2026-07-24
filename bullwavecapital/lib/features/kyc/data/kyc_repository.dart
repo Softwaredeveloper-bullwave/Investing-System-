@@ -12,10 +12,11 @@ class KycRepository {
     return KycStatusModel.fromJson(data);
   }
 
-  Future<KycStatusModel> verifyPan(String pan, {String holderName = ''}) async {
+  Future<KycStatusModel> verifyPan(String pan, {String holderName = '', String? dob}) async {
     final data = await _client.postJson('/verify-pan/', body: {
       'pan_number': pan.toUpperCase(),
       if (holderName.isNotEmpty) 'holder_name': holderName,
+      if (dob != null && dob.isNotEmpty) 'dob': dob,
     });
     return KycStatusModel.fromJson(data);
   }

@@ -577,7 +577,7 @@ class ProfileMenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final iconAccent = accent ?? p.primaryDark;
+    final iconAccent = accent ?? p.primary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),

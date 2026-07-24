@@ -8,6 +8,7 @@ from .models import KycProfile, VerificationAuditLog
 class VerifyPanSerializer(CamelCaseSerializer):
     pan_number = serializers.CharField(max_length=10, min_length=10)
     holder_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    dob = serializers.DateField(required=False, allow_null=True)
 
 
 class VerifyBankSerializer(CamelCaseSerializer):

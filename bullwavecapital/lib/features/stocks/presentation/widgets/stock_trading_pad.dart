@@ -11,11 +11,26 @@ import '../../../../core/theme/colors.dart';
 import '../../../../core/utils/bank_verification_guard.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../models/stock_model.dart';
-import '../../../wallet/presentation/provider/wallet_provider.dart';
+import '../provider/paper_trading_provider.dart';
 import '../provider/stock_features_provider.dart';
 import '../provider/stock_market_provider.dart';
 import '../provider/stock_portfolio_provider.dart';
 import 'trade_order_sheets.dart';
+
+const List<String> _orderTypes = ['MARKET', 'LIMIT', 'SL-M', 'SL'];
+
+String _orderTypeLabel(String type) {
+  switch (type) {
+    case 'LIMIT':
+      return 'Limit';
+    case 'SL-M':
+      return 'SL-M';
+    case 'SL':
+      return 'SL';
+    default:
+      return 'Market';
+  }
+}
 
 /// Dhan-style order pad — Buy/Sell toggle, live price, position & order summary.
 class StockTradingPad extends StatefulWidget {
@@ -51,6 +66,9 @@ class StockTradingPad extends StatefulWidget {
 class _StockTradingPadState extends State<StockTradingPad> {
   late String _side;
   late final TextEditingController _qtyController;
+  late final TextEditingController _limitPriceController;
+  late final TextEditingController _triggerPriceController;
+  String _orderType = 'MARKET';
   bool _isPlacing = false;
 
   @override
@@ -58,17 +76,35 @@ class _StockTradingPadState extends State<StockTradingPad> {
     super.initState();
     _side = widget.initialSide == 'SELL' ? 'SELL' : 'BUY';
     _qtyController = TextEditingController(text: '1');
+    _limitPriceController = TextEditingController();
+    _triggerPriceController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StockMarketProvider>().ensureStock(widget.stock.symbol);
       context.read<StockPortfolioProvider>().loadPortfolio(refreshQuotes: false);
-      context.read<WalletProvider>().loadData();
+      context.read<StockFeaturesProvider>().loadPaperWallet();
+      _limitPriceController.text = widget.stock.ltp.toStringAsFixed(2);
+      _triggerPriceController.text = widget.stock.ltp.toStringAsFixed(2);
     });
   }
 
   @override
   void dispose() {
     _qtyController.dispose();
+    _limitPriceController.dispose();
+    _triggerPriceController.dispose();
     super.dispose();
+  }
+
+  bool get _isMarket => _orderType == 'MARKET';
+  bool get _needsLimitPrice => _orderType == 'LIMIT' || _orderType == 'SL';
+  bool get _needsTriggerPrice => _orderType == 'SL-M' || _orderType == 'SL';
+
+  double? get _limitPrice => double.tryParse(_limitPriceController.text.trim());
+  double? get _triggerPrice => double.tryParse(_triggerPriceController.text.trim());
+
+  void _setOrderType(String type) {
+    if (_orderType == type) return;
+    setState(() => _orderType = type);
   }
 
   bool get _isSell => _side == 'SELL';
@@ -127,8 +163,48 @@ class _StockTradingPadState extends State<StockTradingPad> {
       return;
     }
 
-    setState(() => _isPlacing = true);
+    if (_needsLimitPrice && (_limitPrice == null || _limitPrice! <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid limit price.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_needsTriggerPrice && (_triggerPrice == null || _triggerPrice! <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid trigger (stop) price.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!_isMarket) {
+      await _placeNonMarketOrder(stock);
+      return;
+    }
+
     final features = context.read<StockFeaturesProvider>();
+    final virtualBalance = features.virtualBalance;
+    final orderCost = _qty * stock.ltp;
+    if (!_isSell && virtualBalance != null && orderCost > virtualBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Not enough virtual balance. This order needs '
+            '${CurrencyFormatter.format(orderCost)} but you have '
+            '${CurrencyFormatter.format(virtualBalance)}.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isPlacing = true);
     final order = await features.placePaperTrade(
       symbol: stock.symbol,
       side: _side,
@@ -155,13 +231,60 @@ class _StockTradingPadState extends State<StockTradingPad> {
     await OrderSuccessSheet.show(context, order);
   }
 
+  /// LIMIT / SL-M / SL — goes through the paper-trading order book instead
+  /// of the legacy immediate-fill endpoint, since these may sit PENDING
+  /// rather than executing right away.
+  Future<void> _placeNonMarketOrder(StockModel stock) async {
+    final paperTrading = context.read<PaperTradingProvider>();
+    setState(() => _isPlacing = true);
+    final order = await paperTrading.placeOrder(
+      symbol: stock.symbol,
+      side: _side,
+      quantity: _qty,
+      orderType: _orderType,
+      limitPrice: _needsLimitPrice ? _limitPrice : null,
+      triggerPrice: _needsTriggerPrice ? _triggerPrice : null,
+    );
+    if (!mounted) return;
+    setState(() => _isPlacing = false);
+
+    if (order == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(paperTrading.error ?? 'Order failed. Try again.'),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    unawaited(context.read<StockPortfolioProvider>().loadPortfolio(refreshQuotes: false));
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          order.isExecuted
+              ? '${order.isBuy ? 'Buy' : 'Sell'} ${order.quantity} ${order.symbol} executed @ '
+                  '${CurrencyFormatter.format(order.executedPrice ?? 0)}'
+              : '${_orderTypeLabel(order.orderType)} order placed — pending, will fill when the '
+                  'price condition is met.',
+        ),
+        backgroundColor: order.isExecuted ? AppColors.green : AppColors.brandOrange,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final screenH = MediaQuery.sizeOf(context).height;
 
-    return Consumer3<StockMarketProvider, StockPortfolioProvider, WalletProvider>(
-      builder: (context, market, portfolio, wallet, _) {
+    return Consumer3<StockMarketProvider, StockPortfolioProvider, StockFeaturesProvider>(
+      builder: (context, market, portfolio, features, _) {
         final stock = market.getStock(widget.stock.symbol) ?? widget.stock;
         final isPositive = stock.isPositive;
         final changeColor = isPositive ? AppColors.green : AppColors.red;
@@ -212,21 +335,49 @@ class _StockTradingPadState extends State<StockTradingPad> {
                     const SizedBox(height: 18),
                     _SectionLabel('Order type'),
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceSecondary,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: colors.border),
-                        ),
-                        child: const Text(
-                          'MARKET',
-                          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5),
-                        ),
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final type in _orderTypes)
+                          _OrderTypeChip(
+                            label: _orderTypeLabel(type),
+                            selected: _orderType == type,
+                            onTap: () => _setOrderType(type),
+                          ),
+                      ],
                     ),
+                    if (_needsLimitPrice || _needsTriggerPrice) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          if (_needsTriggerPrice)
+                            Expanded(
+                              child: _PriceInputField(
+                                label: 'Trigger price',
+                                controller: _triggerPriceController,
+                              ),
+                            ),
+                          if (_needsTriggerPrice && _needsLimitPrice) const SizedBox(width: 12),
+                          if (_needsLimitPrice)
+                            Expanded(
+                              child: _PriceInputField(
+                                label: 'Limit price',
+                                controller: _limitPriceController,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _orderType == 'LIMIT'
+                            ? 'Fills only at your limit price or better.'
+                            : _orderType == 'SL-M'
+                                ? 'Turns into a market order once the trigger price is hit.'
+                                : 'Turns into a limit order once the trigger price is hit.',
+                        style: TextStyle(fontSize: 11, color: colors.textMuted),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     _SectionLabel('Quantity'),
                     const SizedBox(height: 10),
@@ -269,7 +420,7 @@ class _StockTradingPadState extends State<StockTradingPad> {
                     _OrderSummaryCard(
                       isSell: _isSell,
                       orderValue: orderValue,
-                      walletBalance: wallet.wallet.balance,
+                      virtualBalance: features.virtualBalance ?? 0,
                       avgPrice: holding?.avgPrice,
                       estRealizedPnl: estRealizedPnl,
                       availableQty: available,
@@ -284,6 +435,8 @@ class _StockTradingPadState extends State<StockTradingPad> {
                 ltp: stock.ltp,
                 sideColor: sideColor,
                 enabled: !_isSell || canSell,
+                isMarket: _isMarket,
+                orderTypeLabel: _orderTypeLabel(_orderType),
                 onConfirm: () => _placeOrder(stock),
               ),
             ],
@@ -331,6 +484,23 @@ class _PadHeader extends StatelessWidget {
                       child: Text(
                         stock.exchange,
                         style: TextStyle(fontSize: 10, color: colors.textMuted, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandOrange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'PRACTICE',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.brandOrange,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
                       ),
                     ),
                   ],
@@ -661,10 +831,72 @@ class _QtyChip extends StatelessWidget {
   }
 }
 
+class _OrderTypeChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _OrderTypeChip({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.brandOrange.withValues(alpha: 0.14) : colors.surfaceSecondary,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? AppColors.brandOrange : colors.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+            fontSize: 13,
+            color: selected ? AppColors.brandOrange : colors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PriceInputField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+
+  const _PriceInputField({required this.label, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixText: '₹ ',
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colors.border),
+        ),
+      ),
+    );
+  }
+}
+
 class _OrderSummaryCard extends StatelessWidget {
   final bool isSell;
   final double orderValue;
-  final double walletBalance;
+  final double virtualBalance;
   final double? avgPrice;
   final double? estRealizedPnl;
   final int availableQty;
@@ -672,7 +904,7 @@ class _OrderSummaryCard extends StatelessWidget {
   const _OrderSummaryCard({
     required this.isSell,
     required this.orderValue,
-    required this.walletBalance,
+    required this.virtualBalance,
     this.avgPrice,
     this.estRealizedPnl,
     required this.availableQty,
@@ -698,8 +930,8 @@ class _OrderSummaryCard extends StatelessWidget {
           if (!isSell) ...[
             const SizedBox(height: 8),
             _SummaryRow(
-              label: 'Available balance',
-              value: CurrencyFormatter.format(walletBalance),
+              label: 'Virtual balance',
+              value: CurrencyFormatter.format(virtualBalance),
             ),
           ],
           if (isSell) ...[
@@ -762,6 +994,8 @@ class _ConfirmBar extends StatelessWidget {
   final Color sideColor;
   final bool enabled;
   final VoidCallback onConfirm;
+  final bool isMarket;
+  final String orderTypeLabel;
 
   const _ConfirmBar({
     required this.isSell,
@@ -771,6 +1005,8 @@ class _ConfirmBar extends StatelessWidget {
     required this.sideColor,
     required this.enabled,
     required this.onConfirm,
+    this.isMarket = true,
+    this.orderTypeLabel = 'Market',
   });
 
   @override
@@ -823,9 +1059,11 @@ class _ConfirmBar extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
-                        enabled
-                            ? '$action $qty @ $priceStr'
-                            : '$action unavailable',
+                        !enabled
+                            ? '$action unavailable'
+                            : isMarket
+                                ? '$action $qty @ $priceStr'
+                                : 'Place $orderTypeLabel $action Order',
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
                       ),
               ),

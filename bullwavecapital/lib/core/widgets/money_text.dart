@@ -79,11 +79,12 @@ class SectionHeader extends StatelessWidget {
     final colors = context.appColors;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(title, style: AppTypography.sectionTitle(colors)),
               if (subtitle != null) ...[
@@ -93,19 +94,23 @@ class SectionHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (actionLabel != null && onAction != null)
-          TextButton(
-            onPressed: onAction,
-            style: TextButton.styleFrom(
+        if (actionLabel != null && onAction != null) ...[
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onAction,
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              actionLabel!,
-              style: ThemeAType.action(size: 14, color: colors.textPrimary),
+              decoration: BoxDecoration(
+                color: colors.textPrimary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                actionLabel!,
+                style: ThemeAType.action(size: 13, color: colors.textPrimary),
+              ),
             ),
           ),
+        ],
       ],
     );
   }

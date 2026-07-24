@@ -144,6 +144,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DATETIME_FORMAT': '%Y-%m-%dT%H:%M:%S.%fZ',
+    # Ensures unexpected server bugs still return JSON (not an HTML debug/error
+    # page), so the Flutter client always gets a parseable `detail` message
+    # instead of falling back to "Server error. Is Django running on port 8000?".
+    'EXCEPTION_HANDLER': 'core.exception_handler.custom_exception_handler',
 }
 
 SIMPLE_JWT = {
@@ -277,6 +281,20 @@ CASHFREE_WEBHOOK_SECRET = config('CASHFREE_WEBHOOK_SECRET', default='')
 SECURE_ID_BASE_URL = config('SECURE_ID_BASE_URL', default='')
 SECURE_ID_API_KEY = config('SECURE_ID_API_KEY', default='')
 SECURE_ID_API_SECRET = config('SECURE_ID_API_SECRET', default='')
+
+# Eko PAN verification (https://developers.eko.in/reference/pan-lite) —
+# paste your keys in .env. When EKO_DEVELOPER_KEY/EKO_KEY/EKO_INITIATOR_ID
+# are set, PAN verification uses Eko instead of Cashfree.
+# Accept both Eko's own dashboard naming (EKO_ACCESS_KEY / EKO_ENVIRONMENT) and
+# our canonical names (EKO_KEY / EKO_ENV) so pasting keys under either label
+# works — Eko's dashboard sometimes calls the "Key" field "Access Key".
+EKO_DEVELOPER_KEY = config('EKO_DEVELOPER_KEY', default='')
+EKO_KEY = config('EKO_KEY', default='') or config('EKO_ACCESS_KEY', default='')
+EKO_INITIATOR_ID = config('EKO_INITIATOR_ID', default='')
+EKO_USER_CODE = config('EKO_USER_CODE', default='')
+EKO_ENV = config('EKO_ENV', default='') or config('EKO_ENVIRONMENT', default='sandbox')
+EKO_BASE_URL = config('EKO_BASE_URL', default='')  # optional override
+EKO_API_VERSION = config('EKO_API_VERSION', default='v3')  # try v2/v1 if you get "No mapping rule matched"
 
 # Compliance
 KYC_AUTO_APPROVE = config('KYC_AUTO_APPROVE', default=False, cast=bool)

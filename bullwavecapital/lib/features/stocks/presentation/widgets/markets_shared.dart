@@ -22,11 +22,12 @@ class MarketsSectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(title, style: ThemeAType.sectionTitle(color: p.textDark, size: 20), maxLines: 2, overflow: TextOverflow.ellipsis),
                 if (subtitle != null) ...[
@@ -36,16 +37,17 @@ class MarketsSectionHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (actionLabel != null && onAction != null)
-            TextButton(
-              onPressed: onAction,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: onAction,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: p.primaryPillDecoration(),
+                child: Text(actionLabel!, style: ThemeAType.label(size: 13, color: p.primary)),
               ),
-              child: Text(actionLabel!, style: ThemeAType.action(color: p.primaryDark)),
             ),
+          ],
         ],
       ),
     );

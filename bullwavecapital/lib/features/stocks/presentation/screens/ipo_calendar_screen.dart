@@ -204,7 +204,7 @@ class _IpoCalendarScreenState extends State<IpoCalendarScreen>
           controller: _tabs,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          labelColor: colors.primaryDark,
+          labelColor: colors.primary,
           unselectedLabelColor: colors.textSecondary,
           labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           indicator: BoxDecoration(
@@ -223,7 +223,7 @@ class _IpoCalendarScreenState extends State<IpoCalendarScreen>
               child: LoadingList(itemCount: 5, itemHeight: 120),
             )
           : RefreshIndicator(
-              color: colors.primaryDark,
+              color: colors.primary,
               backgroundColor: colors.surface,
               onRefresh: _load,
               child: Consumer<StockFeaturesProvider>(

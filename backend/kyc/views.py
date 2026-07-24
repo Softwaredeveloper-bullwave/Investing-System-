@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from accounts.views import SendOTPView, VerifyOTPView
 from services.providers.cashfree_secure_id import CashfreeSecureIdError
+from services.providers.eko_pan import EkoPanError
 
 from .rate_limit import RateLimitExceeded, check_rate_limit
 from .serializers import VerifyBankSerializer, VerifyPanSerializer
@@ -47,11 +48,12 @@ class VerifyPanView(APIView):
                 request.user,
                 data['pan_number'],
                 data.get('holder_name', ''),
+                data.get('dob'),
             )
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=400)
-        except CashfreeSecureIdError as exc:
-            return Response({'detail': str(exc), 'code': exc.code}, status=400)
+        except (CashfreeSecureIdError, EkoPanError) as exc:
+            return Response({'detail': str(exc), 'code': getattr(exc, 'code', '')}, status=400)
 
         payload = build_status_payload(profile)
         response = {
@@ -63,7 +65,7 @@ class VerifyPanView(APIView):
             response['devBypass'] = True
             response['message'] = (
                 'PAN accepted in sandbox dev mode. Real PAN verification requires '
-                'Cashfree production keys (CASHFREE_ENV=production).'
+                'Eko or Cashfree production keys.'
             )
         return Response(response)
 

@@ -37,7 +37,7 @@ class AppBrandLogo extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: SvgPicture.asset(
+        child: Image.asset(
           AppAssets.logo,
           width: size,
           height: size,
@@ -63,16 +63,25 @@ class AppBrandWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final svg = SvgPicture.asset(
-      AppAssets.cbwWordmark,
-      width: width,
-      fit: BoxFit.contain,
+    // The source artwork is a square badge on a solid black canvas, so it
+    // gets the same rounded-card treatment as [AppBrandLogo] — that keeps it
+    // reading as an intentional dark mark on both light and dark screens
+    // instead of a hard-edged square.
+    final radius = width * 0.16;
+    final badge = ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.asset(
+        AppAssets.cbwWordmark,
+        width: width,
+        fit: BoxFit.contain,
+      ),
     );
 
-    if (!showGlow) return svg;
+    if (!showGlow) return badge;
 
     return Container(
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(
             color: AppColors.brandPink.withValues(alpha: 0.30),
@@ -81,7 +90,7 @@ class AppBrandWordmark extends StatelessWidget {
           ),
         ],
       ),
-      child: svg,
+      child: badge,
     );
   }
 }

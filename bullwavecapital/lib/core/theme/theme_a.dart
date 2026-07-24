@@ -62,46 +62,47 @@ class ThemePalette {
     required this.accentSurfaceFg,
   });
 
-  /// Light — warm stone canvas, ink hero, electric lime accent.
+  /// Light — Forest Green premium fintech: off-white canvas, deep forest
+  /// green hero, emerald action accent, mint highlight.
   static const light = ThemePalette(
-    bg: Color(0xFFF4F4F0),
-    surface: Color(0xFFFAFAF8),
-    primary: Color(0xFFC6FF00),
-    primaryDark: Color(0xFF0A0A0A),
-    primarySoft: Color(0xFFF0FFD6),
-    primaryBorder: Color(0xFFD4F5A0),
-    walletAccent: Color(0xFFC6FF00),
-    iconBg: Color(0xFFF0FFD6),
-    iconBorder: Color(0xFFDCF5A0),
-    textDark: Color(0xFF0A0A0A),
-    textGrey: Color(0xFF4A4A46),
-    textMuted: Color(0xFF6E6E69),
+    bg: Color(0xFFF8FAF8),
+    surface: Color(0xFFFFFFFF),
+    primary: Color(0xFF083007),
+    primaryDark: Color(0xFF041C04),
+    primarySoft: Color(0xFFE3F5E8),
+    primaryBorder: Color(0xFFBFE5CA),
+    walletAccent: Color(0xFF16A34A),
+    iconBg: Color(0xFFE3F5E8),
+    iconBorder: Color(0xFFBFE5CA),
+    textDark: Color(0xFF1E293B),
+    textGrey: Color(0xFF64748B),
+    textMuted: Color(0xFF94A3AA),
     card: Color(0xFFFFFFFF),
-    borderLight: Color(0xFFE8E8E3),
-    positive: Color(0xFF15803D),
+    borderLight: Color(0xFFDDE8DD),
+    positive: Color(0xFF16A34A),
     negative: Color(0xFFDC2626),
     accentOrange: Color(0xFFEA580C),
-    onPrimary: Color(0xFF0A0A0A),
-    heroCard: Color(0xFF0A0A0A),
-    heroCardEnd: Color(0xFF1C1C1A),
+    onPrimary: Color(0xFFFFFFFF),
+    heroCard: Color(0xFF083007),
+    heroCardEnd: Color(0xFF041C04),
     heroCardFg: Color(0xFFFFFFFF),
     heroCardMuted: Color(0xCCFFFFFF),
-    accentSurface: Color(0xFFC6FF00),
-    accentSurfaceEnd: Color(0xFFA8E600),
-    accentSurfaceFg: Color(0xFF0A0A0A),
+    accentSurface: Color(0xFF16A34A),
+    accentSurfaceEnd: Color(0xFF6EE7B7),
+    accentSurfaceFg: Color(0xFFFFFFFF),
   );
 
-  /// Dark — ink canvas, elevated graphite cards, lime glow.
+  /// Dark — ink canvas, elevated graphite cards, emerald glow (Forest Green).
   static const dark = ThemePalette(
     bg: Color(0xFF0C0C0C),
     surface: Color(0xFF161616),
-    primary: Color(0xFFC6FF00),
-    primaryDark: Color(0xFFC6FF00),
-    primarySoft: Color(0xFF1A2208),
-    primaryBorder: Color(0xFF3D4F0A),
-    walletAccent: Color(0xFFC6FF00),
-    iconBg: Color(0xFF1A2208),
-    iconBorder: Color(0xFF3D4F0A),
+    primary: Color(0xFF16A34A),
+    primaryDark: Color(0xFF083007),
+    primarySoft: Color(0xFF102B16),
+    primaryBorder: Color(0xFF1F4A2B),
+    walletAccent: Color(0xFF16A34A),
+    iconBg: Color(0xFF102B16),
+    iconBorder: Color(0xFF1F4A2B),
     textDark: Color(0xFFF5F5F0),
     textGrey: Color(0xFFD0D0CA),
     textMuted: Color(0xFFAEAEA8),
@@ -110,14 +111,14 @@ class ThemePalette {
     positive: Color(0xFF4ADE80),
     negative: Color(0xFFFF6B6B),
     accentOrange: Color(0xFFFB923C),
-    onPrimary: Color(0xFF0A0A0A),
-    heroCard: Color(0xFF0A0A0A),
-    heroCardEnd: Color(0xFF141414),
+    onPrimary: Color(0xFFFFFFFF),
+    heroCard: Color(0xFF083007),
+    heroCardEnd: Color(0xFF041C04),
     heroCardFg: Color(0xFFFFFFFF),
     heroCardMuted: Color(0xCCFFFFFF),
-    accentSurface: Color(0xFFC6FF00),
-    accentSurfaceEnd: Color(0xFF9ECC00),
-    accentSurfaceFg: Color(0xFF0A0A0A),
+    accentSurface: Color(0xFF16A34A),
+    accentSurfaceEnd: Color(0xFF6EE7B7),
+    accentSurfaceFg: Color(0xFFFFFFFF),
   );
 
   bool get isDark => identical(this, dark);
@@ -234,24 +235,24 @@ class ThemeA {
 
   static ThemePalette of(BuildContext context) => context.palette;
 
-  static const bg = Color(0xFFF4F4F0);
-  static const primary = Color(0xFFC6FF00);
-  static const primaryDark = Color(0xFF0A0A0A);
-  static const primarySoft = Color(0xFFF0FFD6);
-  static const primaryLight = Color(0xFFF0FFD6);
-  static const walletAccent = Color(0xFFC6FF00);
-  static const iconBg = Color(0xFFF0FFD6);
-  static const iconBorder = Color(0xFFDCF5A0);
-  static const textDark = Color(0xFF0A0A0A);
-  static const textGrey = Color(0xFF5C5C58);
-  static const textMuted = Color(0xFF8A8A85);
+  static const bg = Color(0xFFF8FAF8);
+  static const primary = Color(0xFF083007);
+  static const primaryDark = Color(0xFF041C04);
+  static const primarySoft = Color(0xFFE3F5E8);
+  static const primaryLight = Color(0xFFE3F5E8);
+  static const walletAccent = Color(0xFF16A34A);
+  static const iconBg = Color(0xFFE3F5E8);
+  static const iconBorder = Color(0xFFBFE5CA);
+  static const textDark = Color(0xFF1E293B);
+  static const textGrey = Color(0xFF64748B);
+  static const textMuted = Color(0xFF94A3AA);
   static const card = Color(0xFFFFFFFF);
-  static const borderLight = Color(0xFFE8E8E3);
-  static const positive = Color(0xFF15803D);
+  static const borderLight = Color(0xFFDDE8DD);
+  static const positive = Color(0xFF16A34A);
   static const negative = Color(0xFFDC2626);
   static const accentOrange = Color(0xFFEA580C);
   static const cardRadius = 28.0;
-  static const onPrimary = Color(0xFF0A0A0A);
+  static const onPrimary = Color(0xFFFFFFFF);
 
   static BoxDecoration cardDecoration({Color? shadowTint, double radius = cardRadius}) =>
       ThemePalette.light.cardDecoration(shadowTint: shadowTint, radius: radius);
@@ -344,7 +345,7 @@ extension NeoType on BuildContext {
   TextStyle typePrice([double size = 16]) => ThemeAType.price(size: size, color: p.textDark);
   TextStyle typeLabel([double size = 13, Color? color]) =>
       ThemeAType.label(size: size, color: color ?? p.textDark);
-  TextStyle typeAction([double size = 14]) => ThemeAType.action(size: size, color: p.primaryDark);
+  TextStyle typeAction([double size = 14]) => ThemeAType.action(size: size, color: p.primary);
 }
 
 class AppSectionHeader extends StatelessWidget {
@@ -388,7 +389,7 @@ class AppSectionHeader extends StatelessWidget {
                 decoration: p.primaryPillDecoration(),
                 child: Text(
                   actionLabel!,
-                  style: ThemeAType.label(size: 13, color: p.primaryDark),
+                  style: ThemeAType.label(size: 13, color: p.primary),
                 ),
               ),
             ),

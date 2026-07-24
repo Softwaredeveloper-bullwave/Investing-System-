@@ -55,9 +55,19 @@ class CreatePaymentView(APIView):
             )
         except CashfreePaymentError as exc:
             from services.providers.cashfree_config import cashfree_settings
-            if settings.DEBUG and not cashfree_settings().is_configured:
+            logger.error('Cashfree payment order creation failed: %s', exc)
+            cfg = cashfree_settings()
+            # Sandbox/test Cashfree keys are often IP-whitelisted and will fail
+            # from a dev machine (e.g. "Your IP address is not allowed") even
+            # though credentials are otherwise valid — fall back to an instant
+            # simulated deposit in DEBUG/non-production so local testing isn't
+            # blocked, mirroring the existing KYC sandbox bypass pattern.
+            if settings.DEBUG and not cfg.is_production:
                 return self._dev_instant_deposit(request, amount)
-            return Response({'detail': str(exc)}, status=503)
+            return Response(
+                {'detail': 'Payment gateway is temporarily unavailable. Please try again shortly.'},
+                status=503,
+            )
 
         PaymentOrder.objects.create(
             user=user,

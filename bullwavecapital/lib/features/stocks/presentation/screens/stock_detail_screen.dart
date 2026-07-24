@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +33,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   bool _isLoading = true;
   bool _chartLoading = false;
   String _intervalLabel = '1D';
+  Timer? _liveTimer;
 
   String get _apiInterval {
     for (final item in stockChartIntervals) {
@@ -45,6 +48,29 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    super.dispose();
+  }
+
+  // Real-time candle formation: on intraday intervals, re-fetch the latest
+  // candle every few seconds so the current (still-forming) bar visibly
+  // grows/updates in place — like Groww/Dhan — instead of only refreshing
+  // once on load. Uses `fast: true` server-side (DB-cached candles, no slow
+  // live-provider round trip) so this stays cheap enough to poll.
+  void _startLiveTimer() {
+    _liveTimer?.cancel();
+    if (_intervalLabel == '1M') return; // daily/long-range charts don't need live ticking
+    _liveTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      context.read<StockMarketProvider>().loadCandles(
+            widget.symbol,
+            interval: _apiInterval,
+          );
+    });
+  }
+
   Future<void> _loadCandles({bool showChartLoader = false}) async {
     if (showChartLoader && mounted) setState(() => _chartLoading = true);
     await context.read<StockMarketProvider>().loadCandles(
@@ -52,6 +78,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
           interval: _apiInterval,
         );
     if (mounted) setState(() => _chartLoading = false);
+    _startLiveTimer();
   }
 
   Future<void> _load() async {
@@ -177,6 +204,35 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                             onIntervalSelected: _onIntervalChange,
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _ActionTile(
+                                  icon: Icons.candlestick_chart_rounded,
+                                  label: 'Option Chain',
+                                  subtitle: 'View strikes & OI',
+                                  color: AppColors.blue,
+                                  onTap: () => context.push(
+                                    '${AppRoutes.optionChain}?symbol=${widget.symbol}',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _ActionTile(
+                                  icon: Icons.science_rounded,
+                                  label: 'Paper Trade',
+                                  subtitle: 'Practice risk-free',
+                                  color: AppColors.brandPurple,
+                                  onTap: () => context.push(AppRoutes.paperTrading),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -196,33 +252,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: _StatsGrid(stock: stock),
-                        ),
-                        const SizedBox(height: 20),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _ActionTile(
-                                  icon: Icons.candlestick_chart_outlined,
-                                  label: 'Options',
-                                  color: AppColors.blue,
-                                  onTap: () => context.push(
-                                    '${AppRoutes.optionChain}?symbol=${widget.symbol}',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _ActionTile(
-                                  icon: Icons.science_outlined,
-                                  label: 'Paper Trade',
-                                  color: AppColors.brandPurple,
-                                  onTap: () => context.push(AppRoutes.paperTrading),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ],
                     ),
@@ -367,9 +396,9 @@ class _StatsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 2.2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 2.7,
       ),
       itemCount: items.length,
       itemBuilder: (context, i) => _StatCard(item: items[i]),
@@ -397,16 +426,16 @@ class _StatCard extends StatelessWidget {
     final accent = item.accent ?? AppColors.brandOrange;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: AppDecorations.card(context),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(6),
             decoration: AppDecorations.iconBadge(accent),
-            child: Icon(item.icon, size: 18, color: accent),
+            child: Icon(item.icon, size: 14, color: accent),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,11 +443,12 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   item.label,
-                  style: TextStyle(fontSize: 11, color: colors.textMuted, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 10, color: colors.textMuted, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   item.value,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -433,35 +463,59 @@ class _StatCard extends StatelessWidget {
 class _ActionTile extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String subtitle;
   final Color color;
   final VoidCallback onTap;
 
   const _ActionTile({
     required this.icon,
     required this.label,
+    required this.subtitle,
     required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
           decoration: AppDecorations.card(context),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: AppDecorations.iconBadge(color),
-                child: Icon(icon, color: color, size: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: AppDecorations.iconBadge(color),
+                    child: Icon(icon, color: color, size: 20),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: colors.textMuted,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 11, color: colors.textMuted, fontWeight: FontWeight.w500),
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),

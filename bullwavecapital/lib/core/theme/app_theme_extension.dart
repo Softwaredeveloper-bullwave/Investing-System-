@@ -42,24 +42,27 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     required this.accentOrange,
   });
 
+  // "Forest Green" — premium fintech palette: deep forest green primary
+  // (#083007), emerald action/positive color (#16A34A), mint highlight
+  // (#6EE7B7), off-white background (#F8FAF8), white cards, sage borders.
   static const light = AppThemeExtension(
-    background: Color(0xFFF4F4F0),
+    background: Color(0xFFF8FAF8),
     surface: Color(0xFFFFFFFF),
-    surfaceSecondary: Color(0xFFFAFAF8),
-    border: Color(0xFFE8E8E3),
-    textPrimary: Color(0xFF0A0A0A),
-    textSecondary: Color(0xFF5C5C58),
-    textMuted: Color(0xFF8A8A85),
-    shimmerBase: Color(0xFFE8E8E3),
-    shimmerHighlight: Color(0xFFF4F4F0),
-    primary: Color(0xFFC6FF00),
-    primaryDark: Color(0xFF0A0A0A),
-    primaryLight: Color(0xFFF0FFD6),
-    iconBg: Color(0xFFF0FFD6),
-    iconBorder: Color(0xFFDCF5A0),
-    positive: Color(0xFF15803D),
+    surfaceSecondary: Color(0xFFF1F6F1),
+    border: Color(0xFFDDE8DD),
+    textPrimary: Color(0xFF1E293B),
+    textSecondary: Color(0xFF64748B),
+    textMuted: Color(0xFF94A3AA),
+    shimmerBase: Color(0xFFDDE8DD),
+    shimmerHighlight: Color(0xFFF1F6F1),
+    primary: Color(0xFF083007),
+    primaryDark: Color(0xFF041C04),
+    primaryLight: Color(0xFF6EE7B7),
+    iconBg: Color(0xFFE3F5E8),
+    iconBorder: Color(0xFFBFE5CA),
+    positive: Color(0xFF16A34A),
     negative: Color(0xFFDC2626),
-    onPrimary: Color(0xFF0A0A0A),
+    onPrimary: Color(0xFFFFFFFF),
     accentOrange: Color(0xFFEA580C),
   );
 
@@ -73,14 +76,14 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     textMuted: Color(0xFFAEAEA8),
     shimmerBase: Color(0xFF1C1C1C),
     shimmerHighlight: Color(0xFF2E2E2E),
-    primary: Color(0xFFC6FF00),
-    primaryDark: Color(0xFFC6FF00),
-    primaryLight: Color(0xFF1A2208),
-    iconBg: Color(0xFF1A2208),
-    iconBorder: Color(0xFF3D4F0A),
+    primary: Color(0xFF16A34A),
+    primaryDark: Color(0xFF083007),
+    primaryLight: Color(0xFF102B16),
+    iconBg: Color(0xFF102B16),
+    iconBorder: Color(0xFF1F4A2B),
     positive: Color(0xFF4ADE80),
     negative: Color(0xFFFF6B6B),
-    onPrimary: Color(0xFF0A0A0A),
+    onPrimary: Color(0xFFFFFFFF),
     accentOrange: Color(0xFFFB923C),
   );
 

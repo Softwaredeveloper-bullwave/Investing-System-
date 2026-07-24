@@ -24,6 +24,9 @@ class StockFeaturesProvider extends ChangeNotifier {
   List<SipPlanModel> _sipPlans = [];
   List<PaperTradeModel> _paperTrades = [];
   String? _tradeError;
+  double? _virtualBalance;
+  double? _virtualStartingBalance;
+  bool _isResettingPaper = false;
   List<DividendModel> _dividends = [];
   List<ScreenerStockModel> _screenerResults = [];
   List<String> _screenerSectors = ['All'];
@@ -57,6 +60,9 @@ class StockFeaturesProvider extends ChangeNotifier {
   List<SipPlanModel> get sipPlans => _sipPlans;
   List<PaperTradeModel> get paperTrades => _paperTrades;
   String? get tradeError => _tradeError;
+  double? get virtualBalance => _virtualBalance;
+  double? get virtualStartingBalance => _virtualStartingBalance;
+  bool get isResettingPaper => _isResettingPaper;
   List<DividendModel> get dividends => _dividends;
   List<AiMessageModel> get aiMessages => _aiMessages;
   List<String> get aiSuggestions => _aiSuggestions;
@@ -358,6 +364,17 @@ class StockFeaturesProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Loads the learner's virtual practice-capital balance. Safe to call
+  /// often — it's cheap and keeps buying-power display accurate.
+  Future<void> loadPaperWallet() async {
+    try {
+      final wallet = await _api.getPaperWallet();
+      _virtualBalance = wallet['virtualBalance'];
+      _virtualStartingBalance = wallet['virtualStartingBalance'];
+      notifyListeners();
+    } catch (_) {}
+  }
+
   Future<PaperTradeModel?> placePaperTrade({
     required String symbol,
     required String side,
@@ -371,12 +388,38 @@ class StockFeaturesProvider extends ChangeNotifier {
         quantity: qty,
       );
       _paperTrades = [trade, ..._paperTrades.where((t) => t.id != trade.id)];
+      if (trade.virtualBalance != null) {
+        _virtualBalance = trade.virtualBalance;
+        _virtualStartingBalance = trade.virtualStartingBalance ?? _virtualStartingBalance;
+      }
       notifyListeners();
       return trade;
     } catch (e) {
       _tradeError = e is ApiException ? e.message : 'Order failed. Try again.';
       notifyListeners();
       return null;
+    }
+  }
+
+  /// Wipes all paper positions/orders and restores starting virtual capital
+  /// so a learner can start a clean run. Never touches real money.
+  Future<bool> resetPaperPortfolio() async {
+    _isResettingPaper = true;
+    _tradeError = null;
+    notifyListeners();
+    try {
+      final wallet = await _api.resetPaperPortfolio();
+      _virtualBalance = wallet['virtualBalance'];
+      _virtualStartingBalance = wallet['virtualStartingBalance'];
+      _paperTrades = [];
+      _isResettingPaper = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _tradeError = e is ApiException ? e.message : 'Could not reset paper portfolio. Try again.';
+      _isResettingPaper = false;
+      notifyListeners();
+      return false;
     }
   }
 
@@ -410,7 +453,7 @@ class StockFeaturesProvider extends ChangeNotifier {
       _aiMessages = [
         AiMessageModel(
           role: 'assistant',
-          content: 'Chat cleared. Ask about your portfolio, stocks, or any BullWave feature.',
+          content: 'Chat cleared. Ask about your portfolio, stocks, or any Capital Bullwave feature.',
           time: DateTime.now(),
         ),
       ];

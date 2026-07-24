@@ -52,6 +52,14 @@ class AppRoutes {
   static const String indexFnoHub = '/index-fno';
   static const String fnoVerification = '/fno/verification';
   static const String paperTrading = '/paper-trading';
+  static const String paperOrderBook = '/paper-trading/order-book';
+  static const String paperJournal = '/paper-trading/journal';
+  static const String paperAnalytics = '/paper-trading/analytics';
+  static const String paperRiskLimits = '/paper-trading/risk-limits';
+  static const String paperOptionChain = '/paper-trading/options';
+  static const String paperCommodities = '/paper-trading/commodities';
+  static const String paperPortfolio = '/paper-trading/portfolio';
+  static const String scalping = '/paper-trading/scalping';
   static const String copyTrading = '/copy-trading';
   static const String copyTraderDetail = '/copy-trading/trader';
   static const String portfolioAnalytics = '/portfolio-analytics';

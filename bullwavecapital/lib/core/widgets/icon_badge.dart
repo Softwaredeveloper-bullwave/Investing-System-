@@ -31,7 +31,7 @@ class IconBadge extends StatelessWidget {
       decoration: p.iconCircleDecoration(
         borderColor: color.withValues(alpha: 0.35),
       ),
-      child: Icon(icon, color: p.primaryDark, size: iconSize),
+      child: Icon(icon, color: p.primary, size: iconSize),
     );
   }
 }

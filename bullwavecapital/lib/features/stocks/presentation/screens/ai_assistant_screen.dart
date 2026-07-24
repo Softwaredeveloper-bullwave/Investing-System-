@@ -522,7 +522,7 @@ class _GreetingPanel extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Your BullWave AI assistant',
+              'Your Capital Bullwave AI assistant',
               style: ThemeAType.secondary(size: 14, color: p.textGrey),
             ),
             const SizedBox(height: 20),

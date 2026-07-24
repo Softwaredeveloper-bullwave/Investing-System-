@@ -1,5 +1,6 @@
 """DRF permissions for KYC-gated resources."""
 
+from django.conf import settings
 from rest_framework.permissions import BasePermission, IsAuthenticated
 
 from accounts.models import User
@@ -16,6 +17,14 @@ class IsKycVerified(BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
+        # TEMPORARY (requested 2026-07-22) — mirrors the frontend's
+        # DevConfig.skipKycVerification. Reuses the existing KYC_AUTO_APPROVE
+        # env flag (see accounts/views.py, cashfree_bypass.py for the same
+        # convention) instead of a new one. Nothing about the Eko PAN/bank
+        # integration was touched — set KYC_AUTO_APPROVE=False in .env to
+        # restore real enforcement here.
+        if getattr(settings, 'KYC_AUTO_APPROVE', False):
+            return True
         if user_kyc_is_verified(request.user):
             return True
         # Legacy Cashfree profile check

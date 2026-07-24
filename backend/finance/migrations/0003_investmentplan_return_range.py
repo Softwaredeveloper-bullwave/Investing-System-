@@ -8,7 +8,7 @@ def seed_premium_plan(apps, schema_editor):
     InvestmentPlan.objects.update_or_create(
         id='PLAN001',
         defaults={
-            'name': 'BullWave Premium Plan',
+            'name': 'Capital Bullwave Premium Plan',
             'minimum_investment': Decimal('1000000'),
             'monthly_return_rate': Decimal('1.00'),
             'monthly_return_min': Decimal('0.20'),

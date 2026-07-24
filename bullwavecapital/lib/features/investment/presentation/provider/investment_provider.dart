@@ -19,7 +19,7 @@ class InvestmentProvider extends ChangeNotifier {
       _plan ??
       const InvestmentPlanModel(
         id: 'PLAN001',
-        name: 'BullWave Alpha Premier',
+        name: 'Capital Bullwave Alpha Premier',
         minimumInvestment: 1000000,
         monthlyReturnRate: 0.25,
         monthlyReturnMin: 0.25,

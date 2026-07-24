@@ -43,7 +43,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
     await SharePlus.instance.share(
       ShareParams(
         text: referral.shareMessage,
-        subject: 'Join BullWave Invest',
+        subject: 'Join Capital Bullwave Invest',
       ),
     );
   }

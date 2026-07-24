@@ -135,6 +135,35 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// TEMPORARY (testing, 2026-07-18) — logs in with whatever phone number was
+  /// set via [setPhoneNumber], skipping OTP entirely, via the backend's
+  /// DEBUG-only dev-login endpoint. Used by the login screen when
+  /// `DevConfig.skipOtpVerification` is true. Remove/disable alongside that
+  /// flag when phone verification should be re-enabled.
+  Future<bool> devLoginSkipOtp() async {
+    if (_phoneNumber.length != 10 || !_termsAccepted) return false;
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _user = await _api.devLogin(phone: _phoneNumber);
+      _isAuthenticated = true;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Could not log in. Check your connection and that Django is running.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> verifyOtp(String otp) async {
     final code = otp.replaceAll(RegExp(r'\D'), '');
     if (code.length != 6 || _phoneNumber.length != 10) {

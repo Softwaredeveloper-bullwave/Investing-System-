@@ -52,6 +52,14 @@ import '../../features/stocks/presentation/screens/index_fno_hub_screen.dart';
 import '../../features/fno/presentation/screens/fno_verification_screen.dart';
 
 import '../../features/stocks/presentation/screens/paper_trading_screen.dart';
+import '../../features/stocks/presentation/screens/paper_order_book_screen.dart';
+import '../../features/stocks/presentation/screens/paper_journal_screen.dart';
+import '../../features/stocks/presentation/screens/paper_analytics_screen.dart';
+import '../../features/stocks/presentation/screens/paper_risk_limits_screen.dart';
+import '../../features/stocks/presentation/screens/paper_option_chain_screen.dart';
+import '../../features/stocks/presentation/screens/paper_commodity_screen.dart';
+import '../../features/stocks/presentation/screens/paper_portfolio_screen.dart';
+import '../../features/stocks/presentation/screens/scalping_screen.dart';
 import '../../features/stocks/presentation/screens/copy_trading_screen.dart';
 
 import '../../features/stocks/presentation/screens/portfolio_analytics_screen.dart';
@@ -186,18 +194,37 @@ class AppRouter {
 
 
 
-  static String _manualKycRoute(KycFlowProvider kyc) {
-    if (kyc.manualStatus.isVerified) return AppRoutes.home;
-    if (kyc.manualStatus.isPending) return AppRoutes.kycPending;
-    if (kyc.manualStatus.isRejected) return AppRoutes.kycRejected;
-    return AppRoutes.kycSubmit;
+  /// Primary KYC entry point — the automated Eko PAN → bank → name-match
+  /// flow (no photo upload).
+  ///
+  /// Deliberately does NOT check `kyc.manualStatus` here: a leftover legacy
+  /// manual submission stuck as pending/rejected (from before the app moved
+  /// to instant Eko verification) used to force users onto a dead-end
+  /// "under review" screen with no way back into the new flow, permanently
+  /// blocking trading/deposits/withdrawals even though instant verification
+  /// was available. `isFullyVerified` still honours an already-*approved*
+  /// legacy submission (via `isManualKycVerified`), so nobody who was
+  /// previously verified has to redo anything — this only affects users who
+  /// were never approved, who should always be able to complete the fast
+  /// PAN → bank → name-match path instead of waiting on a stale manual queue.
+  static String _kycEntryRoute(KycFlowProvider kyc) {
+    final s = kyc.status;
+    if (!s.panVerified) return AppRoutes.panVerification;
+    if (!s.bankVerified) return AppRoutes.bankVerificationKyc;
+    if (!s.nameMatchPassed) return AppRoutes.nameMatch;
+    return AppRoutes.home;
   }
 
-  static bool _isManualKycRoute(String path) =>
+  static bool _isKycFlowRoute(String path) =>
+      path == AppRoutes.kyc ||
+      path == AppRoutes.kycStatus ||
       path == AppRoutes.kycSubmit ||
       path == AppRoutes.kycPending ||
       path == AppRoutes.kycRejected ||
-      path == AppRoutes.kycStatus;
+      path == AppRoutes.panVerification ||
+      path == AppRoutes.bankVerificationKyc ||
+      path == AppRoutes.nameMatch ||
+      path == AppRoutes.kycSuccess;
 
   static String _postAuthDestination(KycFlowProvider kyc) => AppRoutes.home;
 
@@ -253,13 +280,27 @@ class AppRouter {
             return _postAuthDestination(kyc);
           }
 
-          if (kyc.isFullyVerified && _isManualKycRoute(path)) {
+          if (kyc.isFullyVerified && _isKycFlowRoute(path)) {
+            // Exception: the name-match screen shows a "Verified!" state right
+            // as the last step passes, and its own button calls
+            // finishKycFlow() (bank_verification_guard.dart) to pop back to
+            // whatever triggered the KYC flow. `runNameMatch()` calls
+            // notifyListeners() on success, which — via `refreshListenable`
+            // above — re-runs this redirect immediately, in the same instant.
+            // Without this exception it would win the race and `go(home)`
+            // before the user (or finishKycFlow) gets a turn, wiping the
+            // pushed stack and losing whatever action the user originally
+            // tapped (Buy, deposit, etc.). kycSuccess is exempted for the
+            // same reason in case anything ever routes through it directly.
+            if (path == AppRoutes.nameMatch || path == AppRoutes.kycSuccess) {
+              return null;
+            }
             return AppRoutes.home;
           }
 
           if (!kyc.isFullyVerified && _requiresKyc(path)) {
 
-            return _manualKycRoute(kyc);
+            return _kycEntryRoute(kyc);
 
           }
 
@@ -707,6 +748,60 @@ class AppRouter {
 
             builder: (context, state) => const PaperTradingScreen(),
 
+          ),
+
+          GoRoute(
+            path: AppRoutes.paperOrderBook,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PaperOrderBookScreen(),
+          ),
+
+          GoRoute(
+            path: AppRoutes.paperJournal,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PaperJournalScreen(),
+          ),
+
+          GoRoute(
+            path: AppRoutes.paperAnalytics,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PaperAnalyticsScreen(),
+          ),
+
+          GoRoute(
+            path: AppRoutes.paperRiskLimits,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PaperRiskLimitsScreen(),
+          ),
+
+          GoRoute(
+            path: AppRoutes.paperOptionChain,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final symbol = state.uri.queryParameters['symbol'] ?? 'NIFTY';
+              return PaperOptionChainScreen(symbol: symbol);
+            },
+          ),
+
+          GoRoute(
+            path: AppRoutes.paperCommodities,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PaperCommodityScreen(),
+          ),
+
+          GoRoute(
+            path: AppRoutes.paperPortfolio,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) => const PaperPortfolioScreen(),
+          ),
+
+          GoRoute(
+            path: AppRoutes.scalping,
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final symbol = state.uri.queryParameters['symbol'];
+              return ScalpingScreen(initialSymbol: symbol);
+            },
           ),
 
           GoRoute(

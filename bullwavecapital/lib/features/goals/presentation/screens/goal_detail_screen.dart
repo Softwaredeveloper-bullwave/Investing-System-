@@ -53,7 +53,7 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Withdraw to wallet?'),
-        content: const Text('Saved amount will move to your BullWave wallet. You can withdraw to bank from Wallet.'),
+        content: const Text('Saved amount will move to your Capital Bullwave wallet. You can withdraw to bank from Wallet.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Withdraw')),
@@ -166,10 +166,39 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _InfoRow(label: 'Monthly installment', value: CurrencyFormatter.format(goal.monthlyContribution)),
-              _InfoRow(label: 'Next due', value: goal.nextContributionDate ?? '—'),
-              _InfoRow(label: 'Target date', value: goal.targetDate ?? '—'),
-              _InfoRow(label: 'Status', value: goal.status.toUpperCase()),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Column(
+                  children: [
+                    _InfoRow(
+                      icon: Icons.repeat_rounded,
+                      label: 'Monthly installment',
+                      value: CurrencyFormatter.format(goal.monthlyContribution),
+                    ),
+                    _InfoRow(
+                      icon: Icons.event_rounded,
+                      label: 'Next due',
+                      value: goal.nextContributionDate ?? '—',
+                    ),
+                    _InfoRow(
+                      icon: Icons.flag_rounded,
+                      label: 'Target date',
+                      value: goal.targetDate ?? '—',
+                    ),
+                    _InfoRow(
+                      icon: Icons.verified_rounded,
+                      label: 'Status',
+                      value: goal.status.toUpperCase(),
+                      showDivider: false,
+                    ),
+                  ],
+                ),
+              ),
               if (goal.isDue) ...[
                 const SizedBox(height: 20),
                 Container(
@@ -206,22 +235,47 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
 }
 
 class _InfoRow extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
-  const _InfoRow({required this.label, required this.value});
+  final bool showDivider;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.showDivider = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: colors.textSecondary)),
-          Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: colors.textPrimary)),
-        ],
-      ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.green.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 15, color: AppColors.green),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(label, style: TextStyle(color: colors.textSecondary, fontSize: 13)),
+              ),
+              Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: colors.textPrimary, fontSize: 13)),
+            ],
+          ),
+        ),
+        if (showDivider) Divider(color: colors.border, height: 1),
+      ],
     );
   }
 }
