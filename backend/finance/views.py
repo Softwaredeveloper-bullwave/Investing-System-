@@ -360,10 +360,12 @@ def _build_portfolio(user, *, refresh_stocks=False):
         paper_balance = Decimal('0')
 
     total_investment = stock_invested + plan_invested
-    # Portfolio value shown to the user combines real holdings/plans, real
-    # wallet cash, and the paper-trading virtual balance — this app is
-    # paper-trading-first, so most users' "net worth" here is simulated.
-    current_value = stock_value + plan_current + wallet_balance + paper_balance
+    # Portfolio value shown to the user reflects REAL money only — real
+    # holdings/plans plus real wallet cash. The paper-trading virtual balance
+    # is tracked separately (see `paper_balance` below) and shown only in the
+    # paper-trading section, so a brand-new user correctly sees ₹0 here
+    # instead of the ₹10,00,000 virtual paper-trading starting balance.
+    current_value = stock_value + plan_current + wallet_balance
     total_profit = stock_pnl + plan_profit
     growth = (
         float((current_value - total_investment) / total_investment * 100)
