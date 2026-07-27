@@ -1,21 +1,24 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 
 import '../config/app_env.dart';
 
 /// Django backend base URL.
 ///
-/// **Play Store release** (required):
+/// Defaults to the deployed AWS backend ([AppEnv.productionApiBaseUrl]) in
+/// EVERY build mode (debug, profile, release — including `flutter run -d
+/// chrome`), so the app talks to the real server unless you explicitly ask
+/// for a local one.
+///
+/// **Point at a local Django dev server instead:**
 /// ```bash
-/// flutter build appbundle --release \
-///   --dart-define=API_BASE_URL=https://api.bullwave.in/api/v1
+/// flutter run --dart-define=API_HOST=10.0.2.2       # Android emulator
+/// flutter run --dart-define=API_HOST=127.0.0.1       # web / iOS sim
+/// flutter run --dart-define=API_HOST=192.168.1.5     # physical phone, same Wi‑Fi
 /// ```
-///
-/// **Local dev — Android emulator:** `10.0.2.2` maps to host machine.
-///
-/// **Physical phone (same Wi‑Fi):**
-/// `flutter run --dart-define=API_HOST=192.168.1.5`
+/// Or set a full custom URL:
+/// ```bash
+/// flutter run --dart-define=API_BASE_URL=http://192.168.1.5:8000/api/v1
+/// ```
 class ApiConfig {
   ApiConfig._();
 
@@ -25,7 +28,8 @@ class ApiConfig {
   static const String _apiHostFromEnv =
       String.fromEnvironment('API_HOST', defaultValue: '');
 
-  /// Uncomment and set when testing on a real phone on the same Wi‑Fi.
+  /// Uncomment and set when testing on a real phone on the same Wi‑Fi,
+  /// without passing --dart-define every time.
   static const String? hostOverride = null;
 
   static String get baseUrl {
@@ -41,13 +45,7 @@ class ApiConfig {
       return _normalizeBase('http://$hostOverride:8000/api/v1');
     }
 
-    if (kReleaseMode) {
-      return _normalizeBase(AppEnv.productionApiBaseUrl);
-    }
-
-    if (kIsWeb) return 'http://127.0.0.1:8000/api/v1';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000/api/v1';
-    return 'http://127.0.0.1:8000/api/v1';
+    return _normalizeBase(AppEnv.productionApiBaseUrl);
   }
 
   static String get _apiHost {
@@ -62,12 +60,7 @@ class ApiConfig {
     if (hostOverride != null && hostOverride!.isNotEmpty) {
       return hostOverride!;
     }
-    if (kReleaseMode) {
-      return Uri.parse(AppEnv.productionApiBaseUrl).host;
-    }
-    if (kIsWeb) return '127.0.0.1';
-    if (Platform.isAndroid) return '10.0.2.2';
-    return '127.0.0.1';
+    return Uri.parse(AppEnv.productionApiBaseUrl).host;
   }
 
   static bool get isProductionApi =>

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/api/api_config.dart';
 import '../../../core/api/api_exception.dart';
@@ -78,9 +79,13 @@ class KycDioClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Server is taking too long to respond. Check that Django is running at ${ApiConfig.baseUrl}.';
+        return kDebugMode
+            ? 'Server is taking too long to respond. Check that Django is running at ${ApiConfig.baseUrl}.'
+            : 'The server is taking too long to respond. Please try again in a moment.';
       case DioExceptionType.connectionError:
-        return 'Cannot reach server at ${ApiConfig.baseUrl}. Run: python manage.py runserver 0.0.0.0:8000';
+        return kDebugMode
+            ? 'Cannot reach server at ${ApiConfig.baseUrl}. Run: python manage.py runserver 0.0.0.0:8000'
+            : 'We couldn\'t connect to the server. Please check your internet connection and try again.';
       default:
         return error.message ?? 'Request failed';
     }

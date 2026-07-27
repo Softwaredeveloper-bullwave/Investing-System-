@@ -112,12 +112,22 @@ class TradingViewChart extends StatelessWidget {
     }
 
     if (candles.length < 2) {
+      // Not actually "loading" here — the fetch already finished (isLoading
+      // is false) and simply came back with nothing. Labeling this "Chart
+      // loading…" was misleading since it never resolved on its own.
       return SizedBox(
         height: height,
         child: Center(
-          child: Text(
-            'Chart loading…',
-            style: ThemeAType.secondary(size: 14, color: p.textGrey),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.show_chart_rounded, size: 22, color: p.textGrey.withValues(alpha: 0.6)),
+              const SizedBox(height: 6),
+              Text(
+                'No chart data available',
+                style: ThemeAType.secondary(size: 14, color: p.textGrey),
+              ),
+            ],
           ),
         ),
       );

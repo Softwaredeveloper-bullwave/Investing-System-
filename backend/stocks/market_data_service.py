@@ -378,12 +378,29 @@ def get_live_candles(symbol, interval='1d', fast=False):
             cache.set(cache_key, candles, 300)
         return candles
 
+    candle_limit = 180 if interval == '90d' else (90 if interval == '1d' else 120)
+
     try:
         stock = Stock.objects.get(symbol=symbol)
     except Stock.DoesNotExist:
-        raise Stock.DoesNotExist(f'Stock matching query does not exist: {symbol}')
+        # No `Stock` row yet — either this equity has never been requested
+        # before, or the live-quote refresh that seeds it failed (rate
+        # limit, provider outage, missing API key, symbol mapping issue).
+        # Previously this raised and the screen hung on "Chart loading…"
+        # forever. Instead, fetch candles straight from the live provider
+        # (same DB-independent path as indices/commodities) so the chart
+        # shows data immediately, and best-effort seed the Stock row in the
+        # background so future requests can use the faster DB-backed path.
+        raw = get_candles(symbol, resolution=resolution, days=days)
+        candles = [_VirtualCandle(c) for c in raw[-candle_limit:]] if raw else []
+        if candles:
+            cache.set(cache_key, candles, 300)
+        try:
+            refresh_stock(symbol)
+        except Exception:
+            logger.warning('Could not seed Stock row for %s after live candle fetch', symbol)
+        return candles
 
-    candle_limit = 180 if interval == '90d' else (90 if interval == '1d' else 120)
     db_candles = list(stock.candles.filter(interval=db_interval).order_by('time')[:candle_limit])
     if fast:
         return db_candles
@@ -445,7 +462,12 @@ def get_underlying_spot(symbol):
 
     try:
         return float(refresh_stock(symbol).ltp)
-    except FinnhubError:
+    except Exception:
+        # Any live-provider failure (rate limit, bad/missing API key,
+        # network error, symbol mapping issue) should degrade gracefully
+        # here — the caller (`_resolve_spot` in options_service.py) has its
+        # own fallback chain (DB ltp → FALLBACK_SPOTS → 1000.0 default) so
+        # the F&O chain still loads instead of 500ing or hanging.
         return None
 
 

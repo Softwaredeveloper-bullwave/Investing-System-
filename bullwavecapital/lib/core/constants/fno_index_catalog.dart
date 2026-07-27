@@ -44,11 +44,18 @@ class FnoUnderlyings {
   static List<({String symbol, String label})> get indices =>
       FnoIndexCatalog.indices.map((i) => (symbol: i.symbol, label: i.label)).toList();
 
+  // Full Nifty 50 — the option chain backend no longer gates on a curated
+  // F&O-only subset (any stock now gets a synthetic chain), so the picker
+  // offers the whole index instead of a smaller hand-picked list.
   static const stocks = [
-    'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'SBIN', 'ITC', 'BHARTIARTL',
-    'KOTAKBANK', 'AXISBANK', 'LT', 'MARUTI', 'TITAN', 'BAJFINANCE', 'HCLTECH',
-    'WIPRO', 'TATAMOTORS', 'M&M', 'NTPC', 'ONGC', 'TATASTEEL', 'ADANIENT',
-    'SUNPHARMA', 'TECHM', 'HINDALCO', 'JSWSTEEL',
+    'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'HINDUNILVR', 'ITC', 'SBIN',
+    'BHARTIARTL', 'KOTAKBANK', 'LT', 'AXISBANK', 'ASIANPAINT', 'MARUTI', 'TITAN',
+    'BAJFINANCE', 'HCLTECH', 'WIPRO', 'ULTRACEMCO', 'NESTLEIND', 'SUNPHARMA',
+    'TMPV', 'M&M', 'NTPC', 'POWERGRID', 'ONGC', 'COALINDIA', 'JSWSTEEL',
+    'TATASTEEL', 'ADANIENT', 'ADANIPORTS', 'TECHM', 'HDFCLIFE', 'SBILIFE',
+    'BAJAJFINSV', 'GRASIM', 'CIPLA', 'BPCL', 'EICHERMOT', 'HEROMOTOCO',
+    'DIVISLAB', 'DRREDDY', 'APOLLOHOSP', 'BRITANNIA', 'HINDALCO', 'INDUSINDBK',
+    'TRENT', 'BEL', 'SHRIRAMFIN', 'JIOFIN',
   ];
 
   static bool isIndex(String symbol) => FnoIndexCatalog.isIndex(symbol);

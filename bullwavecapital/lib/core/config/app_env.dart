@@ -11,8 +11,12 @@ class AppEnv {
   static bool get allowsDevShortcuts => kDebugMode;
 
   /// Default production API when `--dart-define=API_BASE_URL=...` is omitted.
-  /// Deploy Django behind HTTPS at this host before publishing.
-  static const String productionApiBaseUrl = 'https://api.bullwave.in/api/v1';
+  /// Currently the AWS EC2-hosted Django backend. Move to a domain name +
+  /// HTTPS (e.g. https://api.bullwave.in/api/v1) before publishing to the
+  /// Play Store — plain HTTP works for now because cleartext traffic is
+  /// allowed in the Android network security config, but it isn't safe for
+  /// production traffic (login, OTP, tokens) long-term.
+  static const String productionApiBaseUrl = 'http://54.252.165.87/api/v1';
 
   /// Whether OTP console/dev hints may be shown in the UI.
   static bool get showDevOtpHints => kDebugMode;

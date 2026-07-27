@@ -83,6 +83,7 @@ class ModernOtpInputState extends State<ModernOtpInput> {
             children: List.generate(_length, (index) {
               final filled = index < code.length;
               final active = index == code.length && _focusNode.hasFocus;
+              const accent = AppColors.brandCyan;
 
               return Expanded(
                 child: Padding(
@@ -90,36 +91,58 @@ class ModernOtpInputState extends State<ModernOtpInput> {
                     left: index == 0 ? 0 : 4,
                     right: index == _length - 1 ? 0 : 4,
                   ),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    height: 58,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colors.surfaceSecondary,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                      border: Border.all(
-                        color: active
-                            ? AppColors.green
-                            : filled
-                                ? colors.border
-                                : colors.border.withValues(alpha: 0.7),
-                        width: active ? 2 : 1,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: filled ? 1 : 0),
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutBack,
+                    builder: (context, pop, child) {
+                      final scale = 1 + (pop * 0.06);
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      height: 58,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        gradient: filled
+                            ? LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  accent.withValues(alpha: 0.16),
+                                  accent.withValues(alpha: 0.05),
+                                ],
+                              )
+                            : null,
+                        color: filled ? null : colors.surfaceSecondary,
+                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                        border: Border.all(
+                          color: active
+                              ? accent
+                              : filled
+                                  ? accent.withValues(alpha: 0.6)
+                                  : colors.border.withValues(alpha: 0.7),
+                          width: active || filled ? 2 : 1,
+                        ),
+                        boxShadow: active || filled
+                            ? [
+                                BoxShadow(
+                                  color: accent.withValues(alpha: active ? 0.22 : 0.12),
+                                  blurRadius: active ? 12 : 6,
+                                  spreadRadius: active ? 0.5 : 0,
+                                ),
+                              ]
+                            : null,
                       ),
-                      boxShadow: active
-                          ? [
-                              BoxShadow(
-                                color: AppColors.green.withValues(alpha: 0.15),
-                                blurRadius: 8,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Text(
-                      filled ? code[index] : '',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                          ),
+                      child: Text(
+                        filled ? code[index] : '',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                              color: filled ? accent : null,
+                            ),
+                      ),
                     ),
                   ),
                 ),

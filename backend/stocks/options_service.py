@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from .commodity_service import COMMODITY_CATALOG, get_commodity_detail
 from .market_data_service import get_underlying_spot
-from .market_symbols import FNO_INDICES, FNO_STOCKS, NIFTY_50
+from .market_symbols import FNO_INDICES
 from .models import Stock
 
 logger = logging.getLogger('bullwave.market')
@@ -316,8 +316,13 @@ def get_option_chain(symbol, expiry=None, fast=False):
     if _is_commodity(symbol):
         return get_commodity_option_chain(symbol, expiry=expiry, fast=fast)
 
-    allowed = set(FNO_INDICES) | set(FNO_STOCKS) | set(NIFTY_50)
-    if symbol not in allowed and not Stock.objects.filter(symbol=symbol).exists():
+    # Previously gated to a curated allowlist (FNO_INDICES/FNO_STOCKS/NIFTY_50
+    # or an already-fetched Stock row), which silently returned None — and a
+    # blank "No F&O data" screen — for any other valid stock. Since the
+    # whole chain is synthetic and `_resolve_spot` already degrades
+    # gracefully (DB ltp -> live quote -> fallback default), there's no real
+    # reason to block other symbols: open the option chain for any stock.
+    if not symbol or not symbol.replace('&', '').replace('-', '').isalnum():
         return None
 
     cache_key = f'option_chain:v3:{symbol}:{expiry or "nearest"}'
