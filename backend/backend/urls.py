@@ -3,10 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
-
 from core.views import HealthView
-
-
 def api_root(request):
     return JsonResponse(
         {
@@ -27,8 +24,6 @@ def api_root(request):
             ),
         }
     )
-
-
 urlpatterns = [
     path('', api_root, name='api-root'),
     path('health/', HealthView.as_view(), name='health'),
@@ -42,6 +37,6 @@ urlpatterns = [
     path('api/v1/', include('education.urls')),
     path('api/v1/', include('ai.urls')),
 ]
-
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
