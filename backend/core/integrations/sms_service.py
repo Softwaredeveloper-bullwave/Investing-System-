@@ -170,6 +170,25 @@ def send_otp_sms(phone: str, otp: str) -> None:
         _send_console(phone, otp)
 
 
+def send_otp_sms_fallback(phone: str, otp: str) -> bool:
+    """Used when Twilio Verify itself fails to send (bad number, trial-account
+    restriction, Verify service misconfigured, etc). Bypasses Verify entirely
+    and sends a plain SMS via Twilio Messages if a from-number is configured,
+    otherwise logs to console so the OTP is still visible in DEBUG.
+
+    Returns True if it actually went out over a live SMS channel, False if it
+    only logged to console — the caller needs this to report an honest
+    otpMode/devOtp instead of always claiming 'sms' regardless of what really
+    happened (a prior version of this always claimed 'sms' here, based only
+    on the SMS_PROVIDER config existing, which silently lied to the client
+    when no TWILIO_FROM_NUMBER was set and this fell through to console)."""
+    if _twilio_message_ready():
+        _send_twilio(phone, otp)
+        return True
+    _send_console(phone, otp)
+    return False
+
+
 def check_otp_twilio_verify(phone: str, otp: str) -> bool:
     account_sid = (getattr(settings, 'TWILIO_ACCOUNT_SID', '') or '').strip()
     auth_token = (getattr(settings, 'TWILIO_AUTH_TOKEN', '') or '').strip()
@@ -283,5 +302,8 @@ def _send_twilio_message(phone: str, body: str) -> None:
 
 
 def _send_twilio(phone: str, otp: str) -> None:
-    body = f'Your BullWave Capital OTP is {otp}. Valid for {settings.OTP_EXPIRY_MINUTES} minutes.'
+    body = (
+        f'{otp} is your Capital Bullwave verification code. '
+        f'Valid for {settings.OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.'
+    )
     _send_twilio_message(phone, body)

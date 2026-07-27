@@ -20,6 +20,7 @@ from core.integrations.sms_service import (
     check_otp_twilio_verify,
     is_live_sms,
     send_otp_sms,
+    send_otp_sms_fallback,
     uses_twilio_verify,
 )
 from kyc.service import get_or_create_profile
@@ -88,16 +89,46 @@ class SendOTPView(APIView):
         if uses_twilio_verify():
             try:
                 send_otp_sms(phone, '')
+                return Response(
+                    {
+                        'success': True,
+                        'message': 'OTP sent successfully.',
+                        'otpMode': 'sms',
+                    }
+                )
             except SMSError as exc:
-                logger.error('Twilio Verify failed for %s: %s', phone, exc)
-                return Response({'detail': str(exc)}, status=503)
-            return Response(
-                {
+                # Verify itself failed to send (trial-account restriction, bad
+                # number, misconfigured service, Twilio outage, etc). Don't
+                # dead-end the user — fall back to a locally-generated OTP
+                # delivered through a different channel instead of a hard 503.
+                logger.error(
+                    'Twilio Verify failed for %s: %s — falling back to local OTP delivery.',
+                    phone,
+                    exc,
+                )
+                otp = self._issue_local_otp(phone)
+                try:
+                    fallback_live = send_otp_sms_fallback(phone, otp)
+                except SMSError as fallback_exc:
+                    logger.error('Fallback SMS also failed for %s: %s', phone, fallback_exc)
+                    return Response(
+                        {'detail': 'Could not send OTP right now. Please try again shortly.'},
+                        status=503,
+                    )
+                if not fallback_live:
+                    logger.warning(
+                        'OTP for %s only logged to console (no TWILIO_FROM_NUMBER configured) — '
+                        'it was NOT actually sent to the phone.',
+                        phone,
+                    )
+                payload = {
                     'success': True,
                     'message': 'OTP sent successfully.',
-                    'otpMode': 'sms',
+                    'otpMode': 'sms' if fallback_live else 'console',
                 }
-            )
+                if settings.DEBUG and not fallback_live:
+                    payload['devOtp'] = otp
+                return Response(payload)
 
         otp = self._issue_local_otp(phone)
 
@@ -134,12 +165,29 @@ class VerifyOTPView(APIView):
             return Response({'detail': 'Enter the 6-digit OTP.'}, status=400)
 
         if uses_twilio_verify():
-            try:
-                approved = check_otp_twilio_verify(phone, otp)
-            except SMSError as exc:
-                return Response({'detail': str(exc)}, status=400)
-            if not approved:
-                return Response({'detail': 'Incorrect OTP. Please check and try again.'}, status=400)
+            # If SendOTPView fell back to a locally-generated OTP (because the
+            # Verify API call itself failed), there's a pending local record
+            # for this phone — check that instead of asking Twilio Verify
+            # about a verification it never created.
+            local_pending = (
+                OTPVerification.objects.filter(
+                    phone=phone, is_used=False, expires_at__gte=timezone.now()
+                )
+                .order_by('-created_at')
+                .first()
+            )
+            if local_pending is not None:
+                if local_pending.otp_code != otp:
+                    return Response({'detail': 'Incorrect OTP. Please check and try again.'}, status=400)
+                local_pending.is_used = True
+                local_pending.save(update_fields=['is_used'])
+            else:
+                try:
+                    approved = check_otp_twilio_verify(phone, otp)
+                except SMSError as exc:
+                    return Response({'detail': str(exc)}, status=400)
+                if not approved:
+                    return Response({'detail': 'Incorrect OTP. Please check and try again.'}, status=400)
         else:
             now = timezone.now()
             latest = (
