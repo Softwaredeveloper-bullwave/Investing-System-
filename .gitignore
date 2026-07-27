@@ -38,3 +38,4 @@ bullwavecapital/ios/.symlinks/
 bullwavecapital/ios/Flutter/Flutter.framework
 bullwavecapital/ios/Flutter/Flutter.podspec
 *.iml
+hs_err_pid*.log 
