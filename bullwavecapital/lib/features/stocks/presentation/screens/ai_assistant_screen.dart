@@ -507,8 +507,8 @@ class _GreetingPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
