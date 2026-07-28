@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'engagement',
     'education',
     'ai',
+    'adminpanel',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -134,7 +135,12 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000',
+    # Includes the Vite dev-server default port (5173) so the separate
+    # admin-panel React app can call this API from a local dev machine even
+    # when DEBUG=False (where CORS_ALLOW_ALL_ORIGINS no longer applies).
+    # Add your deployed admin-panel URL to the CORS_ALLOWED_ORIGINS env var
+    # in production.
+    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173',
     cast=lambda v: [origin.strip() for origin in v.split(',') if origin.strip()],
 )
 CACHES = {

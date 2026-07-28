@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/v1/', include('engagement.urls')),
     path('api/v1/', include('education.urls')),
     path('api/v1/', include('ai.urls')),
+    path('api/v1/admin/', include('adminpanel.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
