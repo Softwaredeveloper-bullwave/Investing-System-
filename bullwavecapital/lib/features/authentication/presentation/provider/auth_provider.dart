@@ -26,6 +26,10 @@ class AuthProvider extends ChangeNotifier {
   String? _error;
   String? _devOtp;
   String _otpMode = 'console';
+  bool _needsEmailVerification = false;
+  String? _pendingEmailMasked;
+  String _emailOtpMode = 'console';
+  String? _devEmailOtp;
 
   String get phoneNumber => _phoneNumber;
   bool get termsAccepted => _termsAccepted;
@@ -35,6 +39,11 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   String? get devOtp => AppEnv.showDevOtpHints ? _devOtp : null;
   bool get otpIsConsoleMode => _otpMode == 'console';
+
+  bool get needsEmailVerification => _needsEmailVerification;
+  String? get pendingEmailMasked => _pendingEmailMasked;
+  bool get emailOtpIsConsoleMode => _emailOtpMode == 'console';
+  String? get devEmailOtp => AppEnv.showDevOtpHints ? _devEmailOtp : null;
 
   bool get needsProfileSetup =>
       _isAuthenticated && (_user?.hasCompletedOnboarding != true);
@@ -178,8 +187,20 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _user = await _api.verifyOtp(_phoneNumber, code);
+      final result = await _api.verifyOtp(_phoneNumber, code);
+      if (result.requiresEmailOtp) {
+        _needsEmailVerification = true;
+        _pendingEmailMasked = result.maskedEmail;
+        _emailOtpMode = result.emailOtpMode ?? 'console';
+        _devEmailOtp = result.devEmailOtp;
+        _isAuthenticated = false;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+      _user = result.user;
       _isAuthenticated = true;
+      _needsEmailVerification = false;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -195,6 +216,66 @@ class AuthProvider extends ChangeNotifier {
           : 'Could not verify OTP. Check your connection.';
       _isLoading = false;
       _isAuthenticated = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Step 2 — verifies the email OTP sent after phone verification and,
+  /// on success, completes login (tokens are issued server-side only now).
+  Future<bool> verifyEmailOtp(String otp) async {
+    final code = otp.replaceAll(RegExp(r'\D'), '');
+    if (code.length != 6 || _phoneNumber.length != 10) {
+      _error = 'Enter all 6 digits.';
+      notifyListeners();
+      return false;
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _user = await _api.verifyEmailOtp(_phoneNumber, code);
+      _isAuthenticated = true;
+      _needsEmailVerification = false;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = e is TimeoutException
+          ? 'Server took too long. Check Django is running and try again.'
+          : 'Could not verify code. Check your connection.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resendEmailOtp() async {
+    if (_phoneNumber.length != 10) return false;
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final result = await _api.resendEmailOtp(_phoneNumber);
+      _devEmailOtp = result.devOtp;
+      _emailOtpMode = result.otpMode;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _error = 'Could not resend the code. Check your connection.';
+      _isLoading = false;
       notifyListeners();
       return false;
     }
@@ -315,6 +396,8 @@ class AuthProvider extends ChangeNotifier {
     _user = null;
     _phoneNumber = '';
     _termsAccepted = false;
+    _needsEmailVerification = false;
+    _pendingEmailMasked = null;
     notifyListeners();
   }
 }

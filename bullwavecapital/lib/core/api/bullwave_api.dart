@@ -43,6 +43,32 @@ class SendOtpResult {
   bool get isConsoleMode => otpMode == 'console';
 }
 
+/// Result of phone-OTP verification — either a completed login, or (when the
+/// account has an email on file) a pending second factor: an email OTP must
+/// be verified via [BullwaveApi.verifyEmailOtp] before any tokens exist.
+class VerifyOtpResult {
+  const VerifyOtpResult.loggedIn(UserModel this.user)
+      : requiresEmailOtp = false,
+        maskedEmail = null,
+        emailOtpMode = null,
+        devEmailOtp = null;
+
+  const VerifyOtpResult.needsEmailOtp({
+    required this.maskedEmail,
+    required this.emailOtpMode,
+    this.devEmailOtp,
+  })  : requiresEmailOtp = true,
+        user = null;
+
+  final bool requiresEmailOtp;
+  final UserModel? user;
+  final String? maskedEmail;
+  final String? emailOtpMode;
+  final String? devEmailOtp;
+
+  bool get emailOtpIsConsoleMode => emailOtpMode == 'console';
+}
+
 class BullwaveApi {
   BullwaveApi._();
 
@@ -90,11 +116,42 @@ class BullwaveApi {
     return parseUser(data['user'] as Map<String, dynamic>);
   }
 
-  Future<UserModel> verifyOtp(String phone, String otp) async {
+  Future<VerifyOtpResult> verifyOtp(String phone, String otp) async {
     final normalizedPhone = _normalizePhone(phone);
     final normalizedOtp = otp.replaceAll(RegExp(r'\D'), '');
     final data = await _client.post(
       '/auth/verify-otp/',
+      body: {'phone': normalizedPhone, 'otp': normalizedOtp},
+      auth: false,
+      timeout: const Duration(seconds: 30),
+    ) as Map<String, dynamic>;
+
+    if (data['requiresEmailOtp'] == true) {
+      return VerifyOtpResult.needsEmailOtp(
+        maskedEmail: data['maskedEmail']?.toString(),
+        emailOtpMode: data['emailOtpMode']?.toString() ?? 'email',
+        devEmailOtp: data['devEmailOtp']?.toString(),
+      );
+    }
+
+    final access = data['access'] as String?;
+    final refresh = data['refresh'] as String?;
+    if (access == null || refresh == null) {
+      throw ApiException(500, 'Invalid server response. Please try again.');
+    }
+
+    await TokenStorage.saveTokens(access: access, refresh: refresh);
+    await _client.setAccessToken(access);
+    return VerifyOtpResult.loggedIn(parseUser(data['user'] as Map<String, dynamic>));
+  }
+
+  /// Step 2 of login (email second factor) — only reached when [verifyOtp]
+  /// returned a `requiresEmailOtp` result. Issues the real tokens on success.
+  Future<UserModel> verifyEmailOtp(String phone, String otp) async {
+    final normalizedPhone = _normalizePhone(phone);
+    final normalizedOtp = otp.replaceAll(RegExp(r'\D'), '');
+    final data = await _client.post(
+      '/auth/verify-email-otp/',
       body: {'phone': normalizedPhone, 'otp': normalizedOtp},
       auth: false,
       timeout: const Duration(seconds: 30),
@@ -109,6 +166,20 @@ class BullwaveApi {
     await TokenStorage.saveTokens(access: access, refresh: refresh);
     await _client.setAccessToken(access);
     return parseUser(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<SendOtpResult> resendEmailOtp(String phone) async {
+    final normalizedPhone = _normalizePhone(phone);
+    final data = await _client.post(
+      '/auth/resend-email-otp/',
+      body: {'phone': normalizedPhone},
+      auth: false,
+      timeout: const Duration(seconds: 20),
+    ) as Map<String, dynamic>;
+    return SendOtpResult(
+      devOtp: data['devEmailOtp']?.toString(),
+      otpMode: data['emailOtpMode']?.toString() ?? 'console',
+    );
   }
 
   static String _normalizePhone(String phone) {

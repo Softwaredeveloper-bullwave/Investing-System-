@@ -15,6 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.integrations.bank_service import BankValidationError, validate_account_number, validate_ifsc
 from core.integrations.cashfree_service import CashfreeError, is_configured as cashfree_configured
 from core.integrations.cashfree_bypass import verify_bank_with_bypass, verify_pan_with_bypass
+from core.integrations.email_service import EmailError, send_email_otp
 from core.integrations.sms_service import (
     SMSError,
     check_otp_twilio_verify,
@@ -26,7 +27,7 @@ from core.integrations.sms_service import (
 from kyc.service import get_or_create_profile
 
 from core.serializers import CamelCaseSerializer
-from .models import BankAccount, KycDocument, OTPVerification, User
+from .models import BankAccount, EmailOTPVerification, KycDocument, OTPVerification, User
 from .otp_utils import normalize_otp, normalize_phone
 from .serializers import (
     BankAccountSerializer,
@@ -58,6 +59,41 @@ def _issue_auth_tokens(user, request, *, created=False):
             'isNewUser': created,
         }
     )
+
+
+def _mask_email(email: str) -> str:
+    if not email or '@' not in email:
+        return email
+    local, domain = email.split('@', 1)
+    if len(local) <= 2:
+        masked_local = local[0] + '*' * max(len(local) - 1, 1)
+    else:
+        masked_local = local[0] + '*' * (len(local) - 2) + local[-1]
+    return f'{masked_local}@{domain}'
+
+
+def _send_login_email_otp(user, *, created=False):
+    """Generates + sends the email second-factor OTP and returns a Response
+    describing the pending step (no JWTs yet — those are only issued once
+    `VerifyEmailOTPView` confirms this code). Raises EmailError if Brevo
+    itself fails so the caller can decide how to degrade."""
+    otp = f'{random.randint(100000, 999999):06d}'
+    expires_at = timezone.now() + timedelta(minutes=settings.EMAIL_OTP_EXPIRY_MINUTES)
+    EmailOTPVerification.objects.filter(user=user, is_used=False).update(is_used=True)
+    EmailOTPVerification.objects.create(
+        user=user, otp_code=otp, expires_at=expires_at, is_new_user=created,
+    )
+    live = send_email_otp(user.email, user.name, otp)
+    payload = {
+        'requiresEmailOtp': True,
+        'message': 'Enter the verification code sent to your email.',
+        'phone': user.phone,
+        'maskedEmail': _mask_email(user.email),
+        'emailOtpMode': 'email' if live else 'console',
+    }
+    if settings.DEBUG and not live:
+        payload['devEmailOtp'] = otp
+    return Response(payload)
 
 
 def _ensure_user_bootstrap(user, *, created=False):
@@ -216,7 +252,92 @@ class VerifyOTPView(APIView):
 
         user, created = User.objects.get_or_create(phone=phone)
         _ensure_user_bootstrap(user, created=created)
+
+        # True two-factor: if this account has an email on file, a second
+        # OTP goes there and login isn't complete (no JWTs issued) until
+        # `VerifyEmailOTPView` confirms it. Accounts with no email yet
+        # (e.g. a brand new signup that hasn't completed their profile)
+        # can't be sent a code, so they fall back to phone-only login —
+        # same behavior as before this feature existed.
+        if user.email:
+            try:
+                return _send_login_email_otp(user, created=created)
+            except EmailError as exc:
+                logger.error(
+                    'Email OTP send failed for %s (%s): %s — falling back to phone-only login.',
+                    user.phone,
+                    user.email,
+                    exc,
+                )
+                return _issue_auth_tokens(user, request, created=created)
+
         return _issue_auth_tokens(user, request, created=created)
+
+
+class VerifyEmailOTPView(APIView):
+    """Step 2 of login for accounts with an email on file — verifies the
+    code `VerifyOTPView` sent via Brevo and only then issues JWTs.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone = normalize_phone(request.data.get('phone', ''))
+        otp = normalize_otp(request.data.get('otp', ''))
+
+        if not phone:
+            return Response({'detail': 'Enter a valid 10-digit phone number.'}, status=400)
+        if len(otp) != 6:
+            return Response({'detail': 'Enter the 6-digit code sent to your email.'}, status=400)
+
+        user = User.objects.filter(phone=phone).first()
+        if user is None or not user.email:
+            return Response({'detail': 'No pending email verification for this account.'}, status=400)
+
+        pending = (
+            EmailOTPVerification.objects.filter(user=user, is_used=False, expires_at__gte=timezone.now())
+            .order_by('-created_at')
+            .first()
+        )
+        if pending is None:
+            return Response({'detail': 'Code expired. Tap Resend to get a new one.'}, status=400)
+        if pending.otp_code != otp:
+            return Response({'detail': 'Incorrect code. Please check and try again.'}, status=400)
+
+        pending.is_used = True
+        pending.save(update_fields=['is_used'])
+
+        return _issue_auth_tokens(user, request, created=pending.is_new_user)
+
+
+class ResendEmailOTPView(APIView):
+    """POST /auth/resend-email-otp/ { "phone": "..." } — re-sends the email
+    second-factor code for an account already mid-login (i.e. that already
+    passed phone-OTP verification in this attempt).
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone = normalize_phone(request.data.get('phone', ''))
+        if not phone:
+            return Response({'detail': 'Enter a valid 10-digit phone number.'}, status=400)
+
+        user = User.objects.filter(phone=phone).first()
+        if user is None or not user.email:
+            return Response({'detail': 'No pending email verification for this account.'}, status=400)
+
+        # Carry the same is_new_user flag forward from whatever the most
+        # recent pending/used code had, so a resend doesn't lose track of
+        # whether this login is for a brand-new account.
+        last = EmailOTPVerification.objects.filter(user=user).order_by('-created_at').first()
+        created = bool(last and last.is_new_user)
+
+        try:
+            return _send_login_email_otp(user, created=created)
+        except EmailError as exc:
+            logger.error('Resend email OTP failed for %s (%s): %s', user.phone, user.email, exc)
+            return Response({'detail': 'Could not send the code right now. Please try again shortly.'}, status=503)
 
 
 class DevLoginView(APIView):

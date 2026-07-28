@@ -11,13 +11,17 @@ from .views import (
     KycStatusView,
     ProfileAvatarView,
     ProfileView,
+    ResendEmailOTPView,
     SendOTPView,
+    VerifyEmailOTPView,
     VerifyOTPView,
 )
 
 urlpatterns = [
     path('auth/send-otp/', SendOTPView.as_view(), name='send-otp'),
     path('auth/verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
+    path('auth/verify-email-otp/', VerifyEmailOTPView.as_view(), name='verify-email-otp'),
+    path('auth/resend-email-otp/', ResendEmailOTPView.as_view(), name='resend-email-otp'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('users/me/', ProfileView.as_view(), name='profile'),
     path('users/me/complete-profile/', CompleteProfileView.as_view(), name='complete-profile'),

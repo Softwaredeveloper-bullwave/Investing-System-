@@ -5,6 +5,7 @@ class AppRoutes {
   static const String onboarding = '/onboarding';
   static const String login = '/login';
   static const String otp = '/otp';
+  static const String emailOtp = '/email-otp';
   static const String completeProfile = '/complete-profile';
   static const String bankVerification = '/bank-verification';
   static const String home = '/home';

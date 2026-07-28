@@ -81,7 +81,9 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() => _isVerifying = false);
 
     if (success) {
-      if (auth.needsProfileSetup) {
+      if (auth.needsEmailVerification) {
+        router.push(AppRoutes.emailOtp);
+      } else if (auth.needsProfileSetup) {
         router.go(AppRoutes.completeProfile);
       } else {
         unawaited(refreshAllProviders(context));

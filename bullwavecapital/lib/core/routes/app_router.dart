@@ -19,6 +19,8 @@ import '../../features/authentication/presentation/screens/login_screen.dart';
 
 import '../../features/authentication/presentation/screens/otp_screen.dart';
 
+import '../../features/authentication/presentation/screens/email_otp_screen.dart';
+
 import '../../features/authentication/presentation/screens/complete_profile_screen.dart';
 
 import '../../features/home/presentation/screens/home_screen.dart';
@@ -157,7 +159,9 @@ class AppRouter {
 
       path == AppRoutes.login ||
 
-      path == AppRoutes.otp;
+      path == AppRoutes.otp ||
+
+      path == AppRoutes.emailOtp;
 
 
 
@@ -260,6 +264,11 @@ class AppRouter {
 
           // Step 3–4 — phone login + OTP.
           if (!auth.isAuthenticated) {
+            // Second factor: phone OTP passed, email OTP still pending.
+            if (auth.needsEmailVerification) {
+              if (path == AppRoutes.emailOtp) return null;
+              return AppRoutes.emailOtp;
+            }
             if (path == AppRoutes.login || path == AppRoutes.otp) return null;
             return AppRoutes.login;
           }
@@ -341,6 +350,14 @@ class AppRouter {
             path: AppRoutes.otp,
 
             builder: (context, state) => const OtpScreen(),
+
+          ),
+
+          GoRoute(
+
+            path: AppRoutes.emailOtp,
+
+            builder: (context, state) => const EmailOtpScreen(),
 
           ),
 

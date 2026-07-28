@@ -235,6 +235,10 @@ if _sms_provider_raw == 'console':
         SMS_PROVIDER = 'console'
 else:
     SMS_PROVIDER = _sms_provider_raw
+BREVO_API_KEY = _ascii_env(config('BREVO_API_KEY', default=''))
+BREVO_SENDER_EMAIL = _clean_env(config('BREVO_SENDER_EMAIL', default=''))
+BREVO_SENDER_NAME = _clean_env(config('BREVO_SENDER_NAME', default='Capital Bullwave'))
+EMAIL_OTP_EXPIRY_MINUTES = config('EMAIL_OTP_EXPIRY_MINUTES', default=10, cast=int)
 RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='')
 RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
 RAZORPAY_WEBHOOK_SECRET = config('RAZORPAY_WEBHOOK_SECRET', default='')

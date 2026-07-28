@@ -98,6 +98,27 @@ class OTPVerification(models.Model):
         ordering = ['-created_at']
 
 
+class EmailOTPVerification(models.Model):
+    """Second-factor OTP sent to a user's email during login (see
+    `accounts.views.VerifyOTPView`/`VerifyEmailOTPView`). Kept separate from
+    the phone `OTPVerification` model above since it's tied to a specific
+    `User` (an email is only known once an account exists) rather than a
+    bare phone number, and carries `is_new_user` through so the final
+    token-issuing step can still report an accurate `isNewUser` flag even
+    though token issuance now happens one step later than the phone OTP.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_otps')
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    is_new_user = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
 class BankAccount(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bank_account')
     account_holder_name = models.CharField(max_length=120)
