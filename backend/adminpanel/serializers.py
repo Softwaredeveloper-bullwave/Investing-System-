@@ -187,3 +187,62 @@ def serialize_user_detail(user: User, request=None) -> dict:
 class AdminLoginSerializer(serializers.Serializer):
     phone = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+
+_KYC_REQUEST_STATUS_MAP = {
+    'PENDING': 'pending',
+    'APPROVED': 'approved',
+    'REJECTED': 'rejected',
+}
+
+
+def serialize_kyc_request(req, request=None) -> dict:
+    """Shape for the admin KYC Requests table/modal — from a manual
+    `kyc.KYCRequest` (PAN photo submission), the actual review workflow this
+    app uses.
+    """
+    user = req.user
+    return {
+        'id': str(req.id),
+        'userId': str(user.id),
+        'userName': user.name or user.phone,
+        'email': user.email or '',
+        'phone': user.phone,
+        'documentType': 'PAN Card',
+        'documentNumber': req.pan_number,
+        'status': _KYC_REQUEST_STATUS_MAP.get(req.status, req.status.lower()),
+        'submittedAt': _fmt_date(req.created_at),
+        'reviewedAt': _fmt_date(req.reviewed_at),
+        'reviewedBy': (req.reviewed_by.name or req.reviewed_by.phone) if req.reviewed_by else None,
+        'rejectionReason': req.rejection_reason,
+        'documents': {
+            'front': _abs_url(request, req.pan_image),
+            'back': '',
+            'selfie': '',
+        },
+    }
+
+
+def serialize_paper_trade(trade) -> dict:
+    """A single executed paper-trading fill — real trading activity from a
+    real user, shown as-is (no synthetic OPEN/CLOSED position pairing).
+    """
+    user = trade.user
+    return {
+        'id': str(trade.id),
+        'user': {
+            'name': user.name or user.phone,
+            'email': user.email or '',
+            'phone': user.phone,
+        },
+        'symbol': trade.stock.symbol,
+        'company': trade.stock.name,
+        'exchange': trade.stock.exchange,
+        'side': trade.side,
+        'quantity': trade.quantity,
+        'price': float(trade.price),
+        'avgCost': float(trade.avg_cost) if trade.avg_cost is not None else None,
+        'pnl': float(trade.realized_pnl) if trade.realized_pnl is not None else None,
+        'status': trade.status,
+        'time': _fmt_datetime(trade.created_at),
+    }
