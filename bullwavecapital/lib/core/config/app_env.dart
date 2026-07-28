@@ -16,7 +16,7 @@ class AppEnv {
   /// Play Store — plain HTTP works for now because cleartext traffic is
   /// allowed in the Android network security config, but it isn't safe for
   /// production traffic (login, OTP, tokens) long-term.
-  static const String productionApiBaseUrl = 'http://54.252.165.87/api/v1';
+  static const String productionApiBaseUrl = 'http://3.107.192.232/api/v1';
 
   /// Whether OTP console/dev hints may be shown in the UI.
   static bool get showDevOtpHints => kDebugMode;

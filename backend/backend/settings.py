@@ -24,7 +24,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-pro
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,10.0.2.2').split(',')
 if DEBUG:
-    ALLOWED_HOSTS = ["54.252.165.87", "127.0.0.1","localhost",]
+    ALLOWED_HOSTS = ["3.107.192.232", "127.0.0.1","localhost",]
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
