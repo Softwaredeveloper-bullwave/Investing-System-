@@ -8,6 +8,8 @@ from .views import (
     AdminKycMessageView,
     AdminKycStatsView,
     AdminLoginView,
+    AdminLogsStatsView,
+    AdminLogsView,
     AdminMeView,
     AdminStockTradesView,
     AdminUserActionView,
@@ -30,6 +32,8 @@ urlpatterns = [
     path('kyc/<uuid:kyc_id>/action/', AdminKycActionView.as_view(), name='admin-kyc-action'),
     path('kyc/<uuid:kyc_id>/message/', AdminKycMessageView.as_view(), name='admin-kyc-message'),
     path('trades/stocks/', AdminStockTradesView.as_view(), name='admin-trades-stocks'),
+    path('logs/', AdminLogsView.as_view(), name='admin-logs'),
+    path('logs/stats/', AdminLogsStatsView.as_view(), name='admin-logs-stats'),
     path('dashboard/activity/', AdminDashboardActivityView.as_view(), name='admin-dashboard-activity'),
     path('dashboard/revenue/', AdminDashboardRevenueView.as_view(), name='admin-dashboard-revenue'),
 ]

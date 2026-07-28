@@ -30,6 +30,12 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'console': {'class': 'logging.StreamHandler'},
+        # Mirrors WARNING+ records into `core.models.SystemLog` so they show
+        # up in the admin panel's Logs page. Wired onto the root logger below
+        # so it catches every `bullwave.*` logger project-wide (KYC,
+        # payments, market data, unhandled DRF exceptions via
+        # `bullwave.errors`, etc.) without having to list each one.
+        'db': {'class': 'core.log_handler.DatabaseLogHandler', 'level': 'WARNING'},
     },
     'loggers': {
         'bullwave.requests': {
@@ -40,6 +46,10 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
+    },
+    'root': {
+        'handlers': ['console', 'db'],
+        'level': 'WARNING',
     },
 }
 INSTALLED_APPS = [
@@ -52,6 +62,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'core',
     'accounts.apps.AccountsConfig',
     'kyc',
     'payments',

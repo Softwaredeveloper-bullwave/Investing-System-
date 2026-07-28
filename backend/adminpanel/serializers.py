@@ -238,6 +238,22 @@ def serialize_admin_notification(notif) -> dict:
     }
 
 
+def serialize_system_log(log) -> dict:
+    """A single captured log/error row for the admin panel's Logs page — see
+    `core.models.SystemLog` and `core.log_handler.DatabaseLogHandler`.
+    """
+    return {
+        'id': str(log.id),
+        'level': log.level,
+        'logger': log.logger_name,
+        'message': log.message,
+        'traceback': log.traceback,
+        'path': log.path,
+        'method': log.method,
+        'time': _fmt_datetime(log.created_at),
+    }
+
+
 def serialize_paper_trade(trade) -> dict:
     """A single executed paper-trading fill — real trading activity from a
     real user, shown as-is (no synthetic OPEN/CLOSED position pairing).

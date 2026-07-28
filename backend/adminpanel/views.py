@@ -19,6 +19,7 @@ from .serializers import (
     serialize_admin_notification,
     serialize_kyc_request,
     serialize_paper_trade,
+    serialize_system_log,
     serialize_user_detail,
     serialize_user_list_item,
 )
@@ -514,6 +515,61 @@ class AdminDashboardRevenueView(APIView):
             .order_by('month')[:12]
         )
         return Response([{'month': r['month'].strftime('%b'), 'revenue': float(r['total'])} for r in rows])
+
+
+class AdminLogsView(APIView):
+    """GET /api/v1/admin/logs/?level=&search=&page=
+
+    Every WARNING+ log/exception captured project-wide (see
+    `core.models.SystemLog`, populated by `core.log_handler.DatabaseLogHandler`
+    on the root logger) — real backend errors, not synthetic data, so the
+    same bugs a developer would see in `journalctl` on the server show up
+    here for the admin instead.
+    """
+
+    permission_classes = [IsAdminStaff]
+
+    def get(self, request):
+        from core.models import SystemLog
+
+        qs = SystemLog.objects.all()
+
+        level = request.query_params.get('level', '').strip().upper()
+        if level in dict(SystemLog.Level.choices):
+            qs = qs.filter(level=level)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(message__icontains=search) | Q(logger_name__icontains=search) | Q(path__icontains=search)
+            )
+
+        paginator = AdminKycPagination()
+        page = paginator.paginate_queryset(qs, request)
+        data = [serialize_system_log(log) for log in page]
+        return paginator.get_paginated_response(data)
+
+
+class AdminLogsStatsView(APIView):
+    permission_classes = [IsAdminStaff]
+
+    def get(self, request):
+        from core.models import SystemLog
+
+        total = SystemLog.objects.count()
+        errors = SystemLog.objects.filter(level__in=['ERROR', 'CRITICAL']).count()
+        warnings = SystemLog.objects.filter(level='WARNING').count()
+        from datetime import timedelta
+
+        last_24h = SystemLog.objects.filter(created_at__gte=timezone.now() - timedelta(hours=24)).count()
+        return Response(
+            {
+                'totalLogs': total,
+                'errorCount': errors,
+                'warningCount': warnings,
+                'last24h': last_24h,
+            }
+        )
 
 
 def _relative_time(dt) -> str:
