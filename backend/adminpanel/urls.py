@@ -5,6 +5,7 @@ from .views import (
     AdminDashboardRevenueView,
     AdminKycActionView,
     AdminKycListView,
+    AdminKycMessageView,
     AdminKycStatsView,
     AdminLoginView,
     AdminMeView,
@@ -12,6 +13,7 @@ from .views import (
     AdminUserActionView,
     AdminUserDetailView,
     AdminUserListView,
+    AdminUserMessageView,
     AdminUserStatsView,
 )
 
@@ -22,9 +24,11 @@ urlpatterns = [
     path('users/stats/', AdminUserStatsView.as_view(), name='admin-user-stats'),
     path('users/<uuid:user_id>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
     path('users/<uuid:user_id>/action/', AdminUserActionView.as_view(), name='admin-user-action'),
+    path('users/<uuid:user_id>/messages/', AdminUserMessageView.as_view(), name='admin-user-messages'),
     path('kyc/', AdminKycListView.as_view(), name='admin-kyc-list'),
     path('kyc/stats/', AdminKycStatsView.as_view(), name='admin-kyc-stats'),
     path('kyc/<uuid:kyc_id>/action/', AdminKycActionView.as_view(), name='admin-kyc-action'),
+    path('kyc/<uuid:kyc_id>/message/', AdminKycMessageView.as_view(), name='admin-kyc-message'),
     path('trades/stocks/', AdminStockTradesView.as_view(), name='admin-trades-stocks'),
     path('dashboard/activity/', AdminDashboardActivityView.as_view(), name='admin-dashboard-activity'),
     path('dashboard/revenue/', AdminDashboardRevenueView.as_view(), name='admin-dashboard-revenue'),

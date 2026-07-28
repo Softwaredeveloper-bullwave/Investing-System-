@@ -16,6 +16,7 @@ from accounts.models import User
 from .permissions import IsAdminStaff
 from .serializers import (
     AdminLoginSerializer,
+    serialize_admin_notification,
     serialize_kyc_request,
     serialize_paper_trade,
     serialize_user_detail,
@@ -196,6 +197,54 @@ class AdminUserActionView(APIView):
         return Response({'detail': 'Unknown action. Use block, unblock, or delete.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class AdminUserMessageView(APIView):
+    """GET  /api/v1/admin/users/<id>/messages/         — messages admin has sent this user
+    POST /api/v1/admin/users/<id>/messages/  { "title", "message", "type" }
+
+    Sends through the same `engagement.Notification` model the app's own
+    notification bell already reads (`NotificationListView` in
+    `engagement/views.py`), so this is a real message the user will see in
+    the app — not a separate admin-only log. `type` defaults to "kyc" since
+    the main use case is following up on KYC/document issues, but any
+    freeform admin note can be sent (`type` "admin" for anything general).
+    """
+
+    permission_classes = [IsAdminStaff]
+    ALLOWED_TYPES = {'kyc', 'admin', 'general'}
+
+    def get(self, request, user_id):
+        from engagement.models import Notification
+
+        user = User.objects.filter(id=user_id).first()
+        if user is None:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        notifs = Notification.objects.filter(user=user, type__in=self.ALLOWED_TYPES).order_by('-created_at')
+        return Response([serialize_admin_notification(n) for n in notifs])
+
+    def post(self, request, user_id):
+        from engagement.models import Notification
+
+        user = User.objects.filter(id=user_id).first()
+        if user is None:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        title = (request.data.get('title') or '').strip()
+        message = (request.data.get('message') or '').strip()
+        msg_type = (request.data.get('type') or 'kyc').strip().lower()
+
+        if not message:
+            return Response({'detail': 'Message text is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if msg_type not in self.ALLOWED_TYPES:
+            msg_type = 'admin'
+        if not title:
+            title = 'KYC Update' if msg_type == 'kyc' else 'Message from Support'
+
+        notif = Notification.objects.create(user=user, title=title, message=message, type=msg_type)
+        logger.info('Admin %s sent a %s message to user %s', request.user.phone, msg_type, user.phone)
+        return Response(serialize_admin_notification(notif), status=status.HTTP_201_CREATED)
+
+
 class AdminKycPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'pageSize'
@@ -303,6 +352,39 @@ class AdminKycActionView(APIView):
         return Response(serialize_kyc_request(req, request=request))
 
 
+class AdminKycMessageView(APIView):
+    """POST /api/v1/admin/kyc/<id>/message/  { "message" }
+
+    Convenience wrapper around AdminUserMessageView for the KYC review
+    screen — sends the message to the KYC request's user with type "kyc",
+    so admins can follow up about a document issue without leaving the KYC
+    modal.
+    """
+
+    permission_classes = [IsAdminStaff]
+
+    def post(self, request, kyc_id):
+        from engagement.models import Notification
+        from kyc.models import KYCRequest
+
+        req = KYCRequest.objects.select_related('user').filter(id=kyc_id).first()
+        if req is None:
+            return Response({'detail': 'KYC request not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        message = (request.data.get('message') or '').strip()
+        if not message:
+            return Response({'detail': 'Message text is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        notif = Notification.objects.create(
+            user=req.user,
+            title=request.data.get('title') or 'KYC Update',
+            message=message,
+            type='kyc',
+        )
+        logger.info('Admin %s sent a KYC message to user %s (request %s)', request.user.phone, req.user.phone, req.id)
+        return Response(serialize_admin_notification(notif), status=status.HTTP_201_CREATED)
+
+
 class AdminStockTradesView(APIView):
     """GET /api/v1/admin/trades/stocks/?page= — recent paper-trading equity
     fills across all users. Real trading activity, shown as individual
@@ -386,6 +468,21 @@ class AdminDashboardActivityView(APIView):
                     'time': tx.created_at,
                 }
             )
+
+        # Returning-user logins — only count a login as its own event when it
+        # happened well after signup, so a brand new user's first (automatic)
+        # login isn't shown twice alongside "New user registered".
+        for u in User.objects.exclude(last_login=None).order_by('-last_login')[:8]:
+            if (u.last_login - u.date_joined).total_seconds() > 300:
+                events.append(
+                    {
+                        'id': f'login-{u.id}-{u.last_login.isoformat()}',
+                        'type': 'user',
+                        'title': 'User logged in',
+                        'description': f'{u.name or u.phone} signed back in.',
+                        'time': u.last_login,
+                    }
+                )
 
         events.sort(key=lambda e: e['time'], reverse=True)
         for e in events:

@@ -223,6 +223,21 @@ def serialize_kyc_request(req, request=None) -> dict:
     }
 
 
+def serialize_admin_notification(notif) -> dict:
+    """A message the admin panel sent to a user via the shared Notification
+    model (same one the Flutter app already polls for its notification
+    bell), so this is real, not a separate admin-only inbox.
+    """
+    return {
+        'id': str(notif.id),
+        'title': notif.title,
+        'message': notif.message,
+        'type': notif.type,
+        'isRead': notif.is_read,
+        'createdAt': _fmt_datetime(notif.created_at),
+    }
+
+
 def serialize_paper_trade(trade) -> dict:
     """A single executed paper-trading fill — real trading activity from a
     real user, shown as-is (no synthetic OPEN/CLOSED position pairing).

@@ -43,6 +43,12 @@ DEV_AUTH_PHONE = '9999999999'
 
 
 def _issue_auth_tokens(user, request, *, created=False):
+    # Record the login so it's reflected in the admin panel (Users list
+    # "last login" column, Recent Activity feed) even for returning users
+    # who already existed before this login.
+    user.last_login = timezone.now()
+    user.save(update_fields=['last_login'])
+
     refresh = RefreshToken.for_user(user)
     return Response(
         {
