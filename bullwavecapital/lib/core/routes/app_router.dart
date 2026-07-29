@@ -264,8 +264,10 @@ class AppRouter {
 
           // Step 3–4 — phone login + OTP.
           if (!auth.isAuthenticated) {
-            // Second factor: phone OTP passed, email OTP still pending.
-            if (auth.needsEmailVerification) {
+            // Second factor: phone OTP passed, email step still pending
+            // (either entering an email for the first time, or verifying
+            // the code just sent to one already on file).
+            if (auth.needsEmailVerification || auth.needsEmailSetup) {
               if (path == AppRoutes.emailOtp) return null;
               return AppRoutes.emailOtp;
             }

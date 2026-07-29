@@ -13,6 +13,7 @@ from .views import (
     ProfileView,
     ResendEmailOTPView,
     SendOTPView,
+    SetLoginEmailView,
     VerifyEmailOTPView,
     VerifyOTPView,
 )
@@ -20,6 +21,7 @@ from .views import (
 urlpatterns = [
     path('auth/send-otp/', SendOTPView.as_view(), name='send-otp'),
     path('auth/verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
+    path('auth/set-login-email/', SetLoginEmailView.as_view(), name='set-login-email'),
     path('auth/verify-email-otp/', VerifyEmailOTPView.as_view(), name='verify-email-otp'),
     path('auth/resend-email-otp/', ResendEmailOTPView.as_view(), name='resend-email-otp'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),

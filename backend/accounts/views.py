@@ -268,12 +268,13 @@ class VerifyOTPView(APIView):
         user, created = User.objects.get_or_create(phone=phone)
         _ensure_user_bootstrap(user, created=created)
 
-        # True two-factor: if this account has an email on file, a second
-        # OTP goes there and login isn't complete (no JWTs issued) until
-        # `VerifyEmailOTPView` confirms it. Accounts with no email yet
-        # (e.g. a brand new signup that hasn't completed their profile)
-        # can't be sent a code, so they fall back to phone-only login —
-        # same behavior as before this feature existed.
+        # True two-factor, mandatory on every login: if this account already
+        # has an email on file, send the second OTP there straight away. If
+        # it doesn't (a new signup, or an existing user who never added one),
+        # the client is told to collect an email first — see
+        # `SetLoginEmailView`, which saves it and sends the first code. No
+        # JWTs are issued from this endpoint anymore; only
+        # `VerifyEmailOTPView` (after that second code is confirmed) does.
         if user.email:
             try:
                 return _send_login_email_otp(user, created=created)
@@ -286,7 +287,61 @@ class VerifyOTPView(APIView):
                 )
                 return _issue_auth_tokens(user, request, created=created)
 
-        return _issue_auth_tokens(user, request, created=created)
+        return Response(
+            {
+                'requiresEmailSetup': True,
+                'message': 'Add your email to receive a verification code.',
+                'phone': user.phone,
+            }
+        )
+
+
+class SetLoginEmailView(APIView):
+    """POST /auth/set-login-email/ { "phone": "...", "email": "..." }
+
+    For accounts with no email on file yet — `VerifyOTPView` returns
+    `requiresEmailSetup` instead of sending a code in that case, and the
+    client collects an email here. Saves it to the account (so future logins
+    skip straight to the OTP step) and immediately sends the first code to
+    it, continuing the same two-factor flow `VerifyEmailOTPView` completes.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.exceptions import ValidationError
+        from django.core.validators import validate_email
+
+        phone = normalize_phone(request.data.get('phone', ''))
+        email = (request.data.get('email') or '').strip().lower()
+
+        if not phone:
+            return Response({'detail': 'Enter a valid 10-digit phone number.'}, status=400)
+        if not email:
+            return Response({'detail': 'Enter your email address.'}, status=400)
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'detail': 'Enter a valid email address.'}, status=400)
+
+        user = User.objects.filter(phone=phone).first()
+        if user is None:
+            return Response({'detail': 'Verify your phone number first.'}, status=400)
+
+        if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+            return Response({'detail': 'This email is already linked to another account.'}, status=400)
+
+        user.email = email
+        user.save(update_fields=['email'])
+
+        try:
+            return _send_login_email_otp(user, created=False)
+        except EmailError as exc:
+            logger.error('Email OTP send failed for %s (%s): %s', user.phone, user.email, exc)
+            return Response(
+                {'detail': 'Could not send a code to that email right now. Please try again shortly.'},
+                status=503,
+            )
 
 
 class VerifyEmailOTPView(APIView):
