@@ -268,29 +268,17 @@ class VerifyOTPView(APIView):
         user, created = User.objects.get_or_create(phone=phone)
         _ensure_user_bootstrap(user, created=created)
 
-        # True two-factor, mandatory on every login: if this account already
-        # has an email on file, send the second OTP there straight away. If
-        # it doesn't (a new signup, or an existing user who never added one),
-        # the client is told to collect an email first — see
-        # `SetLoginEmailView`, which saves it and sends the first code. No
-        # JWTs are issued from this endpoint anymore; only
-        # `VerifyEmailOTPView` (after that second code is confirmed) does.
-        if user.email:
-            try:
-                return _send_login_email_otp(user, created=created)
-            except EmailError as exc:
-                logger.error(
-                    'Email OTP send failed for %s (%s): %s — falling back to phone-only login.',
-                    user.phone,
-                    user.email,
-                    exc,
-                )
-                return _issue_auth_tokens(user, request, created=created)
-
+        # True two-factor, mandatory on every login: the client always shows
+        # an email step next — pre-filled with the account's saved email if
+        # it has one, blank if not — and only sends the OTP once the user
+        # confirms/enters it via `SetLoginEmailView` (the "Send OTP" tap).
+        # No JWTs are issued from this endpoint anymore; only
+        # `VerifyEmailOTPView` (after that code is confirmed) does.
         return Response(
             {
                 'requiresEmailSetup': True,
-                'message': 'Add your email to receive a verification code.',
+                'existingEmail': user.email or None,
+                'message': 'Enter your email to receive a verification code.',
                 'phone': user.phone,
             }
         )

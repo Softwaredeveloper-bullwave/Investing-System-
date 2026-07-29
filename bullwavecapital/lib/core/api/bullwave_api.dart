@@ -43,46 +43,38 @@ class SendOtpResult {
   bool get isConsoleMode => otpMode == 'console';
 }
 
-/// Result of phone-OTP verification — one of three outcomes:
-/// - [loggedIn]: no email step needed (shouldn't normally happen anymore
-///   now that email is mandatory, kept for forward-compatibility / the
-///   Brevo-outage fallback in `VerifyOTPView`).
-/// - [needsEmailOtp]: account already has an email on file — a code was
-///   just sent there, waiting on [BullwaveApi.verifyEmailOtp].
-/// - [needsEmailSetup]: account has no email yet — the client must collect
-///   one and call [BullwaveApi.setLoginEmail] before any code can be sent.
+/// Result of phone-OTP verification — one of two outcomes in practice:
+/// - [loggedIn]: no email step needed (kept only as a safety-net path for
+///   the Brevo-outage fallback elsewhere; `VerifyOTPView` no longer returns
+///   this in the normal case).
+/// - [needsEmailSetup]: always what happens next — the client shows an
+///   email field (pre-filled with [existingEmail] if the account already
+///   has one on file) and calls [BullwaveApi.setLoginEmail] to actually
+///   send the code once the user confirms/edits it and taps Send OTP.
 class VerifyOtpResult {
   const VerifyOtpResult.loggedIn(UserModel this.user)
-      : requiresEmailOtp = false,
-        requiresEmailSetup = false,
-        maskedEmail = null,
-        emailOtpMode = null,
-        devEmailOtp = null;
+      : requiresEmailSetup = false,
+        existingEmail = null;
 
-  const VerifyOtpResult.needsEmailOtp({
-    required this.maskedEmail,
-    required this.emailOtpMode,
-    this.devEmailOtp,
-  })  : requiresEmailOtp = true,
-        requiresEmailSetup = false,
+  const VerifyOtpResult.needsEmailSetup({this.existingEmail})
+      : requiresEmailSetup = true,
         user = null;
 
-  const VerifyOtpResult.needsEmailSetup()
-      : requiresEmailOtp = false,
-        requiresEmailSetup = true,
-        user = null,
-        maskedEmail = null,
-        emailOtpMode = null,
-        devEmailOtp = null;
-
-  final bool requiresEmailOtp;
   final bool requiresEmailSetup;
   final UserModel? user;
-  final String? maskedEmail;
-  final String? emailOtpMode;
-  final String? devEmailOtp;
+  final String? existingEmail;
+}
 
-  bool get emailOtpIsConsoleMode => emailOtpMode == 'console';
+/// Result of sending/resending the email OTP — either the initial send (via
+/// [BullwaveApi.setLoginEmail]) or a resend (via [BullwaveApi.resendEmailOtp]).
+class EmailOtpSentResult {
+  const EmailOtpSentResult({required this.email, this.devOtp, required this.otpMode});
+
+  final String email;
+  final String? devOtp;
+  final String otpMode;
+
+  bool get isConsoleMode => otpMode == 'console';
 }
 
 class BullwaveApi {
@@ -143,15 +135,7 @@ class BullwaveApi {
     ) as Map<String, dynamic>;
 
     if (data['requiresEmailSetup'] == true) {
-      return const VerifyOtpResult.needsEmailSetup();
-    }
-
-    if (data['requiresEmailOtp'] == true) {
-      return VerifyOtpResult.needsEmailOtp(
-        maskedEmail: data['maskedEmail']?.toString(),
-        emailOtpMode: data['emailOtpMode']?.toString() ?? 'email',
-        devEmailOtp: data['devEmailOtp']?.toString(),
-      );
+      return VerifyOtpResult.needsEmailSetup(existingEmail: data['existingEmail']?.toString());
     }
 
     final access = data['access'] as String?;
@@ -165,27 +149,26 @@ class BullwaveApi {
     return VerifyOtpResult.loggedIn(parseUser(data['user'] as Map<String, dynamic>));
   }
 
-  /// Called when [verifyOtp] returned `needsEmailSetup` — saves the email
-  /// the user just typed to their account and sends the first OTP to it,
-  /// continuing straight into the same email-OTP step as [verifyEmailOtp].
-  Future<VerifyOtpResult> setLoginEmail(String phone, String email) async {
+  /// Called when the user taps "Send OTP" on the email step — saves the
+  /// email (pre-filled or freshly typed) to the account and sends the code.
+  Future<EmailOtpSentResult> setLoginEmail(String phone, String email) async {
     final normalizedPhone = _normalizePhone(phone);
+    final trimmedEmail = email.trim();
     final data = await _client.post(
       '/auth/set-login-email/',
-      body: {'phone': normalizedPhone, 'email': email.trim()},
+      body: {'phone': normalizedPhone, 'email': trimmedEmail},
       auth: false,
       timeout: const Duration(seconds: 20),
     ) as Map<String, dynamic>;
 
-    return VerifyOtpResult.needsEmailOtp(
-      maskedEmail: data['maskedEmail']?.toString(),
-      emailOtpMode: data['emailOtpMode']?.toString() ?? 'email',
-      devEmailOtp: data['devEmailOtp']?.toString(),
+    return EmailOtpSentResult(
+      email: trimmedEmail,
+      devOtp: data['devEmailOtp']?.toString(),
+      otpMode: data['emailOtpMode']?.toString() ?? 'email',
     );
   }
 
-  /// Step 2 of login (email second factor) — only reached when [verifyOtp]
-  /// returned a `requiresEmailOtp` result. Issues the real tokens on success.
+  /// Step 2 of login (email second factor) — issues the real tokens on success.
   Future<UserModel> verifyEmailOtp(String phone, String otp) async {
     final normalizedPhone = _normalizePhone(phone);
     final normalizedOtp = otp.replaceAll(RegExp(r'\D'), '');
@@ -207,7 +190,7 @@ class BullwaveApi {
     return parseUser(data['user'] as Map<String, dynamic>);
   }
 
-  Future<SendOtpResult> resendEmailOtp(String phone) async {
+  Future<EmailOtpSentResult> resendEmailOtp(String phone, String email) async {
     final normalizedPhone = _normalizePhone(phone);
     final data = await _client.post(
       '/auth/resend-email-otp/',
@@ -215,7 +198,8 @@ class BullwaveApi {
       auth: false,
       timeout: const Duration(seconds: 20),
     ) as Map<String, dynamic>;
-    return SendOtpResult(
+    return EmailOtpSentResult(
+      email: email,
       devOtp: data['devEmailOtp']?.toString(),
       otpMode: data['emailOtpMode']?.toString() ?? 'console',
     );

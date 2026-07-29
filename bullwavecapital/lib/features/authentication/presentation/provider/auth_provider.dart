@@ -28,7 +28,8 @@ class AuthProvider extends ChangeNotifier {
   String _otpMode = 'console';
   bool _needsEmailVerification = false;
   bool _needsEmailSetup = false;
-  String? _pendingEmailMasked;
+  String? _existingEmailHint;
+  String? _pendingEmail;
   String _emailOtpMode = 'console';
   String? _devEmailOtp;
 
@@ -43,7 +44,14 @@ class AuthProvider extends ChangeNotifier {
 
   bool get needsEmailVerification => _needsEmailVerification;
   bool get needsEmailSetup => _needsEmailSetup;
-  String? get pendingEmailMasked => _pendingEmailMasked;
+
+  /// The account's saved email, if any — used to pre-fill the email step
+  /// so a returning user doesn't have to retype it every login.
+  String? get existingEmailHint => _existingEmailHint;
+
+  /// The email a code was actually sent to (full, unmasked — the user just
+  /// typed or confirmed it, so there's no need to hide it from them).
+  String? get pendingEmail => _pendingEmail;
   bool get emailOtpIsConsoleMode => _emailOtpMode == 'console';
   String? get devEmailOtp => AppEnv.showDevOtpHints ? _devEmailOtp : null;
 
@@ -193,17 +201,7 @@ class AuthProvider extends ChangeNotifier {
       if (result.requiresEmailSetup) {
         _needsEmailSetup = true;
         _needsEmailVerification = false;
-        _isAuthenticated = false;
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      }
-      if (result.requiresEmailOtp) {
-        _needsEmailSetup = false;
-        _needsEmailVerification = true;
-        _pendingEmailMasked = result.maskedEmail;
-        _emailOtpMode = result.emailOtpMode ?? 'console';
-        _devEmailOtp = result.devEmailOtp;
+        _existingEmailHint = result.existingEmail;
         _isAuthenticated = false;
         _isLoading = false;
         notifyListeners();
@@ -233,12 +231,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Step 1.5 — submits the email the user just typed (account had none on
-  /// file). On success, transitions straight into the email-OTP step, same
-  /// as if the account already had an email when [verifyOtp] ran.
+  /// Step 1.5 — "Send OTP" tap on the email step. Saves the email (typed
+  /// fresh, or the pre-filled existing one confirmed as-is) to the account
+  /// and sends the code, transitioning into the OTP-entry state.
   Future<bool> submitLoginEmail(String email) async {
     final trimmed = email.trim();
-    if (trimmed.isEmpty || !trimmed.contains('@')) {
+    if (trimmed.isEmpty || !trimmed.contains('@') || !trimmed.contains('.')) {
       _error = 'Enter a valid email address.';
       notifyListeners();
       return false;
@@ -256,9 +254,9 @@ class AuthProvider extends ChangeNotifier {
       final result = await _api.setLoginEmail(_phoneNumber, trimmed);
       _needsEmailSetup = false;
       _needsEmailVerification = true;
-      _pendingEmailMasked = result.maskedEmail;
-      _emailOtpMode = result.emailOtpMode ?? 'console';
-      _devEmailOtp = result.devEmailOtp;
+      _pendingEmail = result.email;
+      _emailOtpMode = result.otpMode;
+      _devEmailOtp = result.devOtp;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -275,6 +273,15 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  /// Backs out of OTP entry to let the user fix a typo'd email — purely a
+  /// local state reset, no API call (nothing was consumed server-side).
+  void backToEmailEntry() {
+    _needsEmailVerification = false;
+    _needsEmailSetup = true;
+    _error = null;
+    notifyListeners();
   }
 
   /// Step 2 — verifies the email OTP sent after phone verification and,
@@ -313,12 +320,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> resendEmailOtp() async {
-    if (_phoneNumber.length != 10) return false;
+    if (_phoneNumber.length != 10 || _pendingEmail == null) return false;
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      final result = await _api.resendEmailOtp(_phoneNumber);
+      final result = await _api.resendEmailOtp(_phoneNumber, _pendingEmail!);
       _devEmailOtp = result.devOtp;
       _emailOtpMode = result.otpMode;
       _isLoading = false;
@@ -454,7 +461,8 @@ class AuthProvider extends ChangeNotifier {
     _termsAccepted = false;
     _needsEmailVerification = false;
     _needsEmailSetup = false;
-    _pendingEmailMasked = null;
+    _existingEmailHint = null;
+    _pendingEmail = null;
     notifyListeners();
   }
 }
