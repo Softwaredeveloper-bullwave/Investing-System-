@@ -3,15 +3,19 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/routes.dart';
+import '../../../../core/theme/app_decorations.dart';
 import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
-import '../../../../core/utils/bank_verification_guard.dart';
 import '../../../../core/widgets/custom_app_bar.dart';
-import '../../../../core/widgets/primary_button.dart';
-import '../../domain/kyc_models.dart';
 import '../provider/kyc_flow_provider.dart';
 import '../widgets/kyc_widgets.dart';
 
+/// Entry point for the "KYC" section from Profile. This used to show the
+/// legacy Cashfree flow (PAN + bank + name-match), which the backend no
+/// longer treats as the real verification path — the actual, working flow
+/// is the manual PAN submission (`/kyc/submit`, reviewed by admin or
+/// instantly by Eko). This screen now checks the real (manual) status and
+/// routes straight to the matching screen instead of showing stale content.
 class KycStatusScreen extends StatefulWidget {
   const KycStatusScreen({super.key});
 
@@ -23,126 +27,127 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<KycFlowProvider>().loadStatus();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAndRoute());
+  }
+
+  Future<void> _loadAndRoute() async {
+    final kyc = context.read<KycFlowProvider>();
+    await kyc.loadManualStatus();
+    if (!mounted) return;
+
+    final status = kyc.manualStatus;
+    if (status.isPending) {
+      context.go(AppRoutes.kycPending);
+    } else if (status.isRejected) {
+      context.go(AppRoutes.kycRejected);
+    } else if (status.needsSubmit) {
+      context.go(AppRoutes.kycSubmit);
+    }
+    // isVerified: stay on this screen and show the verified summary below.
   }
 
   @override
   Widget build(BuildContext context) {
+    final kyc = context.watch<KycFlowProvider>();
     final colors = context.appColors;
+    final status = kyc.manualStatus;
 
+    // Still loading, or about to be redirected by _loadAndRoute — show a
+    // spinner rather than any flow-specific content.
+    if (!kyc.statusLoaded || !status.isVerified) {
+      return Scaffold(
+        appBar: const CustomAppBar(title: 'KYC Verification'),
+        body: const Center(child: CircularProgressIndicator(color: AppColors.brandOrange)),
+      );
+    }
+
+    final req = status.latestRequest;
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: const CustomAppBar(title: 'KYC Verification'),
-      body: Consumer<KycFlowProvider>(
-        builder: (context, kyc, _) {
-          if (kyc.isLoading && kyc.status == KycStatusModel.empty) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.brandOrange));
-          }
-
-          final s = kyc.status;
-          return RefreshIndicator(
-            color: AppColors.brandOrange,
-            onRefresh: kyc.loadStatus,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(20),
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Verification Progress',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: AppDecorations.glassCard(context),
+              child: Column(
+                children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: AppColors.green.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
-                    KycStatusBadge(status: s.overallStatus),
+                    child: const Icon(Icons.verified_rounded, size: 44, color: AppColors.green),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'You’re verified',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your KYC is complete. You have full access to invest and withdraw.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  const KycStatusBadge(status: 'verified'),
+                ],
+              ),
+            ),
+            if (req != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Verified details',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 10),
+                    _InfoRow(label: 'PAN', value: req.panNumber),
+                    _InfoRow(label: 'Name', value: req.fullName),
+                    if (req.reviewedAt != null)
+                      _InfoRow(label: 'Verified on', value: req.reviewedAt!.split('T').first),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Complete all steps to start investing and withdrawing.',
-                  style: TextStyle(color: colors.textSecondary),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceSecondary,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colors.border),
-                  ),
-                  child: Column(
-                    children: [
-                      KycStepTile(
-                        title: 'Mobile Verified',
-                        subtitle: s.mobileVerified ? 'OTP verified' : 'Login with phone OTP',
-                        completed: s.mobileVerified,
-                      ),
-                      KycStepTile(
-                        title: 'PAN Verified',
-                        subtitle: s.panVerified ? '${s.panName} • ${s.panNumberMasked}' : 'Verify PAN with Cashfree',
-                        completed: s.panVerified,
-                      ),
-                      KycStepTile(
-                        title: 'Bank Verified',
-                        subtitle: s.bankVerified
-                            ? '${s.bankName} • ${s.bankAccountMasked}'
-                            : 'Link bank account',
-                        completed: s.bankVerified,
-                      ),
-                      KycStepTile(
-                        title: 'Name Match Passed',
-                        subtitle: s.nameMatchPassed
-                            ? '${s.nameMatchResult} (${s.nameMatchScore.toStringAsFixed(0)}%)'
-                            : 'Match PAN name with bank records',
-                        completed: s.nameMatchPassed,
-                        isLast: true,
-                      ),
-                    ],
-                  ),
-                ),
-                if (kyc.error != null) ...[
-                  const SizedBox(height: 16),
-                  KycErrorBanner(message: kyc.error!),
-                ],
-                const SizedBox(height: 24),
-                if (!s.panVerified)
-                  PrimaryButton(
-                    label: 'Verify PAN',
-                    // Tracks the push so finishKycFlow() can pop straight back
-                    // to whatever triggered this dashboard once verification
-                    // finishes. See bank_verification_guard.dart.
-                    onPressed: () {
-                      kyc.kycPushDepth++;
-                      context.push(AppRoutes.panVerification);
-                    },
-                  )
-                else if (!s.bankVerified)
-                  PrimaryButton(
-                    label: 'Verify Bank Account',
-                    onPressed: () {
-                      kyc.kycPushDepth++;
-                      context.push(AppRoutes.bankVerificationKyc);
-                    },
-                  )
-                else if (!s.nameMatchPassed)
-                  PrimaryButton(
-                    label: 'Run Name Match',
-                    onPressed: () {
-                      kyc.kycPushDepth++;
-                      context.push(AppRoutes.nameMatch);
-                    },
-                  )
-                else
-                  PrimaryButton(
-                    label: 'Start Investing',
-                    onPressed: () => finishKycFlow(context),
-                  ),
-              ],
-            ),
-          );
-        },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
       ),
     );
   }
