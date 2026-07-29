@@ -152,6 +152,32 @@ def serialize_user_detail(user: User, request=None) -> dict:
         document_type = document_type or 'PAN Card'
         submitted_at = submitted_at or docs[KycDocument.DocumentType.PAN].uploaded_at
 
+    # --- F&O eligibility proof: a separate flow/model
+    # (`kyc.models.FnoEligibilityRequest`) from the PAN/Aadhaar KYC above —
+    # a user who only did F&O verification (bank statement, Form 16, ITR)
+    # has their proof here, not in KYCRequest/KycDocument, so without this
+    # they'd wrongly show "No document uploaded" despite having submitted
+    # one. Only one file per request (no separate front/back/selfie), so it
+    # goes in the "front" slot; skipped entirely for the portfolio-holding
+    # proof type, which has no document by design (instant balance check).
+    fno_document_type = ''
+    fno_status = ''
+    if not document_front:
+        try:
+            from kyc.models import FnoEligibilityRequest
+
+            fno_request = FnoEligibilityRequest.objects.filter(user=user).order_by('-created_at').first()
+        except Exception:
+            fno_request = None
+
+        if fno_request is not None and fno_request.document:
+            document_front = _abs_url(request, fno_request.document)
+            document_type = fno_request.get_proof_type_display()
+            fno_document_type = fno_request.get_proof_type_display()
+            fno_status = fno_request.status
+            submitted_at = submitted_at or fno_request.created_at
+            reviewed_at = reviewed_at or fno_request.reviewed_at
+
     base.update(
         {
             'panNumber': pan_number,
@@ -171,6 +197,8 @@ def serialize_user_detail(user: User, request=None) -> dict:
                 'documentFront': document_front,
                 'documentBack': document_back,
                 'selfie': selfie,
+                'fnoProofType': fno_document_type,
+                'fnoStatus': fno_status,
             },
             'address': {
                 'street': '',
