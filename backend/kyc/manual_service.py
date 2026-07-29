@@ -1,5 +1,6 @@
 """Manual KYC — admin review workflow (replaces Cashfree PAN verification)."""
 
+import logging
 from datetime import date
 
 from django.db import transaction
@@ -13,6 +14,8 @@ from .notifications import (
     notify_user_kyc_approved,
     notify_user_kyc_rejected,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ManualKycError(Exception):
@@ -66,6 +69,83 @@ def serialize_request(req: KYCRequest, request=None) -> dict:
         'created_at': req.created_at.isoformat(),
         'updated_at': req.updated_at.isoformat(),
     }
+
+
+def _try_auto_approve_via_eko(req_id: str, pan: str, name: str, dob: date) -> bool:
+    """Best-effort instant PAN verification via Eko, run right after a KYC
+    request is committed. Product decision: PAN is "fully automatic approval"
+    — if Eko confirms the PAN number, name and DOB all match, the request is
+    approved immediately with no admin involved. Any failure at all (Eko not
+    configured, network/API error, invalid PAN, name/DOB mismatch) must fall
+    back silently to the normal manual admin-review flow — this can never
+    block or fail the user's submission itself. Returns True if it approved
+    the request, False otherwise.
+    """
+    from services.providers.eko_pan import EkoPanError, verify_pan
+
+    try:
+        result = verify_pan(pan, name, dob.isoformat(), client_ref_id=req_id)
+    except EkoPanError as exc:
+        logger.info('Eko auto-approval skipped for KYC request %s: %s', req_id, exc)
+        return False
+    except Exception:
+        logger.exception('Eko auto-approval check errored for KYC request %s', req_id)
+        return False
+
+    if not result.get('valid'):
+        return False
+    if result.get('name_match_result') != 'DIRECT_MATCH':
+        return False
+    if result.get('dob_match') is False:
+        return False
+
+    user_phone = ''
+    user_email = ''
+    full_name = ''
+    with transaction.atomic():
+        req = KYCRequest.objects.select_for_update().select_related('user').get(id=req_id)
+        if req.status != KYCRequest.Status.PENDING:
+            # Already actioned (e.g. an admin got to it first) — don't touch it.
+            return False
+
+        now = timezone.now()
+        req.status = KYCRequest.Status.APPROVED
+        req.reviewed_by = None
+        req.reviewed_at = now
+        req.rejection_reason = ''
+        req.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'rejection_reason', 'updated_at'])
+
+        user = req.user
+        user.kyc_status = User.KycStatus.VERIFIED
+        user.pan_status = User.PanStatus.VERIFIED
+        user.save(update_fields=['kyc_status', 'pan_status'])
+
+        profile, _ = KycProfile.objects.get_or_create(user=user)
+        profile.pan_number = req.pan_number
+        profile.pan_name = req.full_name
+        profile.pan_status = KycProfile.VerificationStatus.VERIFIED
+        profile.pan_reference_id = result.get('reference_id', '') or ''
+        profile.pan_verified_at = now
+        profile.name_match_result = result.get('name_match_result', '') or ''
+        profile.name_match_score = result.get('name_match_score') or 0
+        profile.name_match_passed = True
+        profile.name_match_checked_at = now
+        profile.overall_status = KycProfile.OverallStatus.VERIFIED
+        profile.verified_at = now
+        profile.mobile_verified = True
+        profile.save()
+
+        user_phone = user.phone
+        user_email = user.email or ''
+        full_name = req.full_name
+
+    notify_user_kyc_approved(
+        user_phone=user_phone,
+        full_name=full_name,
+        user_email=user_email,
+    )
+    logger.info('KYC request %s auto-approved instantly via Eko PAN verification', req_id)
+    return True
 
 
 def get_kyc_me_payload(user: User, request=None) -> dict:
@@ -143,20 +223,27 @@ def submit_kyc_request(
     user_email = user.email or ''
     user_city = user.city or ''
     submitted_at = req.created_at.isoformat()
-    transaction.on_commit(
-        lambda: notify_admin_new_kyc_request(
-            user_phone=user_phone,
-            user_email=user_email,
-            user_city=user_city,
-            pan_number=pan,
-            full_name=name,
-            dob=dob.isoformat(),
-            request_id=req_id,
-            pan_image_paths=image_paths,
-            pan_image_urls=pan_urls,
-            submitted_at=submitted_at,
-        )
-    )
+
+    def _after_commit():
+        # Try instant Eko PAN auto-approval first. Only notify the admin of
+        # a "new KYC request to review" if it wasn't auto-approved — no
+        # point alerting admin to review something already verified.
+        auto_approved = _try_auto_approve_via_eko(req_id, pan, name, dob)
+        if not auto_approved:
+            notify_admin_new_kyc_request(
+                user_phone=user_phone,
+                user_email=user_email,
+                user_city=user_city,
+                pan_number=pan,
+                full_name=name,
+                dob=dob.isoformat(),
+                request_id=req_id,
+                pan_image_paths=image_paths,
+                pan_image_urls=pan_urls,
+                submitted_at=submitted_at,
+            )
+
+    transaction.on_commit(_after_commit)
     return req
 
 
