@@ -219,9 +219,13 @@ class AppRouter {
     return AppRoutes.home;
   }
 
+  /// Routes that make no sense to sit on once KYC is already verified — the
+  /// global redirect below bounces a verified user straight home from these.
+  /// Deliberately excludes `AppRoutes.kyc`/`kycStatus`: that's the KYC
+  /// section's landing/status page (opened from Profile/Settings), and a
+  /// verified user tapping it should see their verified summary, not get
+  /// redirected away before the screen even renders.
   static bool _isKycFlowRoute(String path) =>
-      path == AppRoutes.kyc ||
-      path == AppRoutes.kycStatus ||
       path == AppRoutes.kycSubmit ||
       path == AppRoutes.kycPending ||
       path == AppRoutes.kycRejected ||
