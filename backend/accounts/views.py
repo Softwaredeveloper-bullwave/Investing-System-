@@ -227,7 +227,22 @@ class VerifyOTPView(APIView):
                 try:
                     approved = check_otp_twilio_verify(phone, otp)
                 except SMSError as exc:
-                    return Response({'detail': str(exc)}, status=400)
+                    # Twilio Verify throws a raw API error (e.g. 20404
+                    # "VerificationCheck was not found") once a code has
+                    # expired or was already checked — that's expected
+                    # Twilio Verify behavior, not a real server bug, so log
+                    # the technical detail server-side (visible in the admin
+                    # panel's Logs page) but never surface raw provider JSON
+                    # to the user — it read as a crash, not "try again".
+                    logger.warning(
+                        'Twilio Verify check failed for %s (likely expired/already-used code): %s',
+                        phone,
+                        exc,
+                    )
+                    return Response(
+                        {'detail': 'This code has expired or was already used. Tap Resend OTP to get a new code.'},
+                        status=400,
+                    )
                 if not approved:
                     return Response({'detail': 'Incorrect OTP. Please check and try again.'}, status=400)
         else:

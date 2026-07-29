@@ -230,6 +230,27 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
                           fontSize: 13,
                         ),
                       ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.shield_outlined, size: 15, color: colors.textMuted),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        "Don't share this code with anyone, including Capital Bullwave support.",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          color: colors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
