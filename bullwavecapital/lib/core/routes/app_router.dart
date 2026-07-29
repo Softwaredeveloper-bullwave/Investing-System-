@@ -319,6 +319,25 @@ class AppRouter {
 
           }
 
+          // KYC section landing page (Profile/Settings -> KYC): route
+          // declaratively off the manual KYC status once it's loaded, rather
+          // than having KycStatusScreen call context.go() itself. Calling
+          // go() imperatively from inside a screen while this
+          // refreshListenable-driven redirect *also* re-runs on the same
+          // provider update races two navigation transitions against each
+          // other and was causing "AnimationController.dispose() called
+          // more than once" crashes. KycStatusScreen only triggers the load
+          // (a plain async call, no navigation); this redirect reacts to the
+          // resulting notifyListeners() and returns the destination.
+          if ((path == AppRoutes.kyc || path == AppRoutes.kycStatus) &&
+              !kyc.isFullyVerified &&
+              kyc.statusLoaded) {
+            final status = kyc.manualStatus;
+            if (status.isPending) return AppRoutes.kycPending;
+            if (status.isRejected) return AppRoutes.kycRejected;
+            if (status.needsSubmit) return AppRoutes.kycSubmit;
+          }
+
 
 
           return null;

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/constants/routes.dart';
 import '../../../../core/theme/app_decorations.dart';
 import '../../../../core/theme/app_theme_extension.dart';
 import '../../../../core/theme/colors.dart';
@@ -14,8 +12,18 @@ import '../widgets/kyc_widgets.dart';
 /// legacy Cashfree flow (PAN + bank + name-match), which the backend no
 /// longer treats as the real verification path — the actual, working flow
 /// is the manual PAN submission (`/kyc/submit`, reviewed by admin or
-/// instantly by Eko). This screen now checks the real (manual) status and
-/// routes straight to the matching screen instead of showing stale content.
+/// instantly by Eko).
+///
+/// This screen only triggers loading the real (manual) status —
+/// it does NOT navigate itself. The router's top-level `redirect` (in
+/// app_router.dart) reacts to the resulting notifyListeners() and sends the
+/// user to the matching screen (submit/pending/rejected) declaratively.
+/// Having this screen *also* call context.go() used to race the router's own
+/// refreshListenable-triggered redirect and caused
+/// "AnimationController.dispose() called more than once" crashes from two
+/// competing page transitions firing on the same navigation. If the user is
+/// already verified, no redirect fires and this screen just shows the
+/// verified summary below.
 class KycStatusScreen extends StatefulWidget {
   const KycStatusScreen({super.key});
 
@@ -27,23 +35,9 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAndRoute());
-  }
-
-  Future<void> _loadAndRoute() async {
-    final kyc = context.read<KycFlowProvider>();
-    await kyc.loadManualStatus();
-    if (!mounted) return;
-
-    final status = kyc.manualStatus;
-    if (status.isPending) {
-      context.go(AppRoutes.kycPending);
-    } else if (status.isRejected) {
-      context.go(AppRoutes.kycRejected);
-    } else if (status.needsSubmit) {
-      context.go(AppRoutes.kycSubmit);
-    }
-    // isVerified: stay on this screen and show the verified summary below.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<KycFlowProvider>().loadManualStatus();
+    });
   }
 
   @override
