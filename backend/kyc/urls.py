@@ -15,6 +15,12 @@ from .email_action_views import (
     KycEmailRejectView,
 )
 from .fno_views import FnoMeView, FnoSubmitView
+from .instant_views import (
+    InstantAadhaarStartView,
+    InstantAadhaarStatusView,
+    InstantKycStatusView,
+    InstantPanVerifyView,
+)
 from .views import (
     KycStatusView,
     NameMatchView,
@@ -32,9 +38,17 @@ urlpatterns = [
     path('verify-bank/', VerifyBankView.as_view(), name='verify-bank'),
     path('name-match/', NameMatchView.as_view(), name='name-match'),
     path('kyc-status/', KycStatusView.as_view(), name='kyc-status'),
-    # Manual admin-reviewed KYC
+    # Manual admin-reviewed KYC (legacy — still used by existing/in-flight
+    # KYCRequest rows and the admin panel; the app itself now uses the
+    # instant flow below as its primary KYC path)
     path('kyc/submit/', KycSubmitView.as_view(), name='kyc-submit'),
     path('kyc/me/', KycMeView.as_view(), name='kyc-me'),
+    # Instant KYC — typed PAN (Eko PAN Lite) + Aadhaar (Eko DigiLocker), no
+    # photos, no admin review
+    path('kyc/instant/status/', InstantKycStatusView.as_view(), name='kyc-instant-status'),
+    path('kyc/instant/verify-pan/', InstantPanVerifyView.as_view(), name='kyc-instant-verify-pan'),
+    path('kyc/instant/aadhaar/start/', InstantAadhaarStartView.as_view(), name='kyc-instant-aadhaar-start'),
+    path('kyc/instant/aadhaar/status/', InstantAadhaarStatusView.as_view(), name='kyc-instant-aadhaar-status'),
     # One-click review from admin email (signed token, no login)
     path('kyc/review/approve/', KycEmailApproveView.as_view(), name='kyc-email-approve'),
     path('kyc/review/reject/', KycEmailRejectView.as_view(), name='kyc-email-reject'),

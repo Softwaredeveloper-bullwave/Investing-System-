@@ -47,6 +47,21 @@ class KycProfile(models.Model):
     name_match_passed = models.BooleanField(default=False)
     name_match_checked_at = models.DateTimeField(null=True, blank=True)
 
+    # Instant Aadhaar verification via Eko DigiLocker (see
+    # services.providers.eko_digilocker). Only the last 4 digits of the
+    # Aadhaar number are stored (never the full number) — DigiLocker itself
+    # holds the source of truth, we just record enough to show the user
+    # what was verified.
+    aadhaar_status = models.CharField(
+        max_length=20, choices=VerificationStatus.choices, default=VerificationStatus.PENDING
+    )
+    aadhaar_last4 = models.CharField(max_length=4, blank=True, default='')
+    aadhaar_name = models.CharField(max_length=120, blank=True, default='')
+    aadhaar_dob = models.CharField(max_length=20, blank=True, default='')
+    aadhaar_reference_id = models.CharField(max_length=64, blank=True, default='')
+    aadhaar_failure_reason = models.CharField(max_length=280, blank=True, default='')
+    aadhaar_verified_at = models.DateTimeField(null=True, blank=True)
+
     overall_status = models.CharField(
         max_length=20, choices=OverallStatus.choices, default=OverallStatus.PENDING
     )
