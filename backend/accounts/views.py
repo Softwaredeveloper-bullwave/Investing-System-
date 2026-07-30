@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+import threading
 from datetime import timedelta
 
 from django.conf import settings
@@ -15,7 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.integrations.bank_service import BankValidationError, validate_account_number, validate_ifsc
 from core.integrations.cashfree_service import CashfreeError, is_configured as cashfree_configured
 from core.integrations.cashfree_bypass import verify_bank_with_bypass, verify_pan_with_bypass
-from core.integrations.email_service import EmailError, send_email_otp
+from core.integrations.email_service import EmailError, is_brevo_ready, send_email_otp
 from core.integrations.sms_service import (
     SMSError,
     check_otp_twilio_verify,
@@ -73,17 +74,43 @@ def _mask_email(email: str) -> str:
 
 
 def _send_login_email_otp(user, *, created=False):
-    """Generates + sends the email second-factor OTP and returns a Response
+    """Generates the email second-factor OTP and returns a Response
     describing the pending step (no JWTs yet — those are only issued once
-    `VerifyEmailOTPView` confirms this code). Raises EmailError if Brevo
-    itself fails so the caller can decide how to degrade."""
+    `VerifyEmailOTPView` confirms this code).
+
+    The actual Brevo API call is fired in a background thread rather than
+    awaited here — Brevo's own round trip (up to its own 15s timeout) was
+    blocking a whole gunicorn sync worker for the entire request, and with
+    only a handful of workers that was enough to make this endpoint (and,
+    transitively, unrelated requests queued behind it) exceed the app's
+    client-side timeout. The OTP row is already created before this
+    returns, so `VerifyEmailOTPView`/`ResendEmailOTPView` work regardless
+    of how long the actual email delivery takes; a failed background send
+    is logged (and shows up on the admin Logs page) rather than surfaced
+    synchronously — the user can always tap Resend if nothing arrives.
+    """
     otp = f'{random.randint(100000, 999999):06d}'
     expires_at = timezone.now() + timedelta(minutes=settings.EMAIL_OTP_EXPIRY_MINUTES)
     EmailOTPVerification.objects.filter(user=user, is_used=False).update(is_used=True)
     EmailOTPVerification.objects.create(
         user=user, otp_code=otp, expires_at=expires_at, is_new_user=created,
     )
-    live = send_email_otp(user.email, user.name, otp)
+
+    live = is_brevo_ready()
+    if live:
+        email, name = user.email, user.name
+
+        def _send_in_background():
+            try:
+                send_email_otp(email, name, otp)
+            except EmailError as exc:
+                logger.error('Background email OTP send failed for %s: %s', email, exc)
+
+        threading.Thread(target=_send_in_background, daemon=True).start()
+    else:
+        # Console fallback — just a log line, no network call, safe to run inline.
+        send_email_otp(user.email, user.name, otp)
+
     payload = {
         'requiresEmailOtp': True,
         'message': 'Enter the verification code sent to your email.',
