@@ -96,7 +96,7 @@ import '../../features/notifications/presentation/screens/notifications_screen.d
 
 import '../../features/support/presentation/screens/support_screen.dart';
 
-import '../../features/kyc/presentation/screens/kyc_submit_screen.dart';
+import '../../features/kyc/presentation/screens/instant_kyc_screen.dart';
 
 import '../../features/kyc/presentation/screens/kyc_pending_screen.dart';
 
@@ -198,25 +198,12 @@ class AppRouter {
 
 
 
-  /// Primary KYC entry point — the automated Eko PAN → bank → name-match
-  /// flow (no photo upload).
-  ///
-  /// Deliberately does NOT check `kyc.manualStatus` here: a leftover legacy
-  /// manual submission stuck as pending/rejected (from before the app moved
-  /// to instant Eko verification) used to force users onto a dead-end
-  /// "under review" screen with no way back into the new flow, permanently
-  /// blocking trading/deposits/withdrawals even though instant verification
-  /// was available. `isFullyVerified` still honours an already-*approved*
-  /// legacy submission (via `isManualKycVerified`), so nobody who was
-  /// previously verified has to redo anything — this only affects users who
-  /// were never approved, who should always be able to complete the fast
-  /// PAN → bank → name-match path instead of waiting on a stale manual queue.
+  /// Primary KYC entry point — the instant typed-PAN (Eko PAN Lite) +
+  /// Aadhaar (Eko DigiLocker) flow, no photo upload, no admin review.
+  /// `AppRoutes.kycSubmit` now points at `InstantKycScreen`, which handles
+  /// both steps itself; there's nothing further to branch on here.
   static String _kycEntryRoute(KycFlowProvider kyc) {
-    final s = kyc.status;
-    if (!s.panVerified) return AppRoutes.panVerification;
-    if (!s.bankVerified) return AppRoutes.bankVerificationKyc;
-    if (!s.nameMatchPassed) return AppRoutes.nameMatch;
-    return AppRoutes.home;
+    return AppRoutes.kycSubmit;
   }
 
   /// Routes that make no sense to sit on once KYC is already verified — the
@@ -320,22 +307,22 @@ class AppRouter {
           }
 
           // KYC section landing page (Profile/Settings -> KYC): route
-          // declaratively off the manual KYC status once it's loaded, rather
-          // than having KycStatusScreen call context.go() itself. Calling
-          // go() imperatively from inside a screen while this
+          // declaratively off the instant KYC status once it's loaded,
+          // rather than having KycStatusScreen call context.go() itself.
+          // Calling go() imperatively from inside a screen while this
           // refreshListenable-driven redirect *also* re-runs on the same
           // provider update races two navigation transitions against each
           // other and was causing "AnimationController.dispose() called
           // more than once" crashes. KycStatusScreen only triggers the load
           // (a plain async call, no navigation); this redirect reacts to the
-          // resulting notifyListeners() and returns the destination.
+          // resulting notifyListeners() and returns the destination. The
+          // instant flow has no separate pending/rejected screens (both
+          // steps and any errors are handled inline in InstantKycScreen),
+          // so there's just one destination while unverified.
           if ((path == AppRoutes.kyc || path == AppRoutes.kycStatus) &&
               !kyc.isFullyVerified &&
-              kyc.statusLoaded) {
-            final status = kyc.manualStatus;
-            if (status.isPending) return AppRoutes.kycPending;
-            if (status.isRejected) return AppRoutes.kycRejected;
-            if (status.needsSubmit) return AppRoutes.kycSubmit;
+              kyc.instantStatusLoaded) {
+            return AppRoutes.kycSubmit;
           }
 
 
@@ -502,7 +489,7 @@ class AppRouter {
 
             path: AppRoutes.kycSubmit,
 
-            builder: (context, state) => const KycSubmitScreen(),
+            builder: (context, state) => const InstantKycScreen(),
 
           ),
 

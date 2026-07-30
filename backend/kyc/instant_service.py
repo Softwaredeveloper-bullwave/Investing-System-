@@ -54,6 +54,7 @@ def get_instant_kyc_status(user: User) -> dict:
         'pan_verified_at': profile.pan_verified_at.isoformat() if profile.pan_verified_at else None,
         'pan_failure_reason': profile.pan_failure_reason,
         'aadhaar_status': profile.aadhaar_status,
+        'aadhaar_started': bool(profile.aadhaar_reference_id),
         'aadhaar_name': profile.aadhaar_name,
         'aadhaar_last4': profile.aadhaar_last4,
         'aadhaar_verified_at': profile.aadhaar_verified_at.isoformat() if profile.aadhaar_verified_at else None,

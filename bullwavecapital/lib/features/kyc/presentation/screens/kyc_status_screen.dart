@@ -8,22 +8,20 @@ import '../../../../core/widgets/custom_app_bar.dart';
 import '../provider/kyc_flow_provider.dart';
 import '../widgets/kyc_widgets.dart';
 
-/// Entry point for the "KYC" section from Profile. This used to show the
-/// legacy Cashfree flow (PAN + bank + name-match), which the backend no
-/// longer treats as the real verification path — the actual, working flow
-/// is the manual PAN submission (`/kyc/submit`, reviewed by admin or
-/// instantly by Eko).
+/// Entry point for the "KYC" section from Profile. The real, working KYC
+/// path is the instant flow (`InstantKycScreen` at `AppRoutes.kycSubmit`):
+/// typed PAN via Eko PAN Lite + Aadhaar via Eko DigiLocker, no photo
+/// uploads, no admin review.
 ///
-/// This screen only triggers loading the real (manual) status —
-/// it does NOT navigate itself. The router's top-level `redirect` (in
-/// app_router.dart) reacts to the resulting notifyListeners() and sends the
-/// user to the matching screen (submit/pending/rejected) declaratively.
-/// Having this screen *also* call context.go() used to race the router's own
-/// refreshListenable-triggered redirect and caused
-/// "AnimationController.dispose() called more than once" crashes from two
-/// competing page transitions firing on the same navigation. If the user is
-/// already verified, no redirect fires and this screen just shows the
-/// verified summary below.
+/// This screen only triggers loading the instant status — it does NOT
+/// navigate itself. The router's top-level `redirect` (in app_router.dart)
+/// reacts to the resulting notifyListeners() and sends the user to
+/// `AppRoutes.kycSubmit` declaratively. Having this screen *also* call
+/// context.go() used to race the router's own refreshListenable-triggered
+/// redirect and caused "AnimationController.dispose() called more than
+/// once" crashes from two competing page transitions firing on the same
+/// navigation. If the user is already verified, no redirect fires and this
+/// screen just shows the verified summary below.
 class KycStatusScreen extends StatefulWidget {
   const KycStatusScreen({super.key});
 
@@ -36,7 +34,7 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<KycFlowProvider>().loadManualStatus();
+      context.read<KycFlowProvider>().loadInstantStatus();
     });
   }
 
@@ -44,18 +42,17 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
   Widget build(BuildContext context) {
     final kyc = context.watch<KycFlowProvider>();
     final colors = context.appColors;
-    final status = kyc.manualStatus;
+    final status = kyc.instantStatus;
 
-    // Still loading, or about to be redirected by _loadAndRoute — show a
+    // Still loading, or about to be redirected by the router — show a
     // spinner rather than any flow-specific content.
-    if (!kyc.statusLoaded || !status.isVerified) {
+    if (!kyc.instantStatusLoaded || !status.isFullyVerified) {
       return Scaffold(
         appBar: const CustomAppBar(title: 'KYC Verification'),
         body: const Center(child: CircularProgressIndicator(color: AppColors.brandOrange)),
       );
     }
 
-    final req = status.latestRequest;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: const CustomAppBar(title: 'KYC Verification'),
@@ -94,31 +91,32 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
                 ],
               ),
             ),
-            if (req != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Verified details',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 10),
-                    _InfoRow(label: 'PAN', value: req.panNumber),
-                    _InfoRow(label: 'Name', value: req.fullName),
-                    if (req.reviewedAt != null)
-                      _InfoRow(label: 'Verified on', value: req.reviewedAt!.split('T').first),
-                  ],
-                ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.border),
               ),
-            ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Verified details',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 10),
+                  _InfoRow(label: 'PAN', value: status.panNumber),
+                  _InfoRow(label: 'PAN Name', value: status.panName),
+                  _InfoRow(label: 'Aadhaar Name', value: status.aadhaarName),
+                  if (status.aadhaarLast4.isNotEmpty)
+                    _InfoRow(label: 'Aadhaar', value: 'XXXX XXXX ${status.aadhaarLast4}'),
+                  if (status.aadhaarVerifiedAt != null)
+                    _InfoRow(label: 'Verified on', value: status.aadhaarVerifiedAt!.split('T').first),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -134,6 +132,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(

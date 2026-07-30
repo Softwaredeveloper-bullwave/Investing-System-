@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../data/dio_client.dart';
+import '../models/instant_kyc_status_model.dart';
 import '../models/kyc_status_model.dart';
 
 /// Manual KYC API — uses [ApiConfig.baseUrl] via [KycDioClient].
@@ -67,6 +68,53 @@ class KycApiService {
         e.response?.statusCode ?? 500,
         _extractMessage(e),
       );
+    }
+  }
+
+  // --- Instant KYC (typed PAN + DigiLocker Aadhaar) ---
+
+  Future<InstantKycStatusModel> fetchInstantStatus() async {
+    final data = await _client.getJson('/kyc/instant/status/');
+    return InstantKycStatusModel.fromJson(data);
+  }
+
+  Future<InstantKycStatusModel> verifyPanInstant({
+    required String panNumber,
+    required String fullName,
+    required String dob,
+  }) async {
+    try {
+      final data = await _client.postJson('/kyc/instant/verify-pan/', body: {
+        'pan_number': panNumber.toUpperCase().trim(),
+        'full_name': fullName.trim(),
+        'dob': dob,
+      });
+      return InstantKycStatusModel.fromJson(data);
+    } on DioException catch (e) {
+      if (e.error is ApiException) throw e.error!;
+      throw ApiException(e.response?.statusCode ?? 500, _extractMessage(e));
+    }
+  }
+
+  Future<DigilockerSessionModel> startAadhaarVerification({String redirectUrl = ''}) async {
+    try {
+      final data = await _client.postJson('/kyc/instant/aadhaar/start/', body: {
+        if (redirectUrl.isNotEmpty) 'redirect_url': redirectUrl,
+      });
+      return DigilockerSessionModel.fromJson(data);
+    } on DioException catch (e) {
+      if (e.error is ApiException) throw e.error!;
+      throw ApiException(e.response?.statusCode ?? 500, _extractMessage(e));
+    }
+  }
+
+  Future<InstantKycStatusModel> checkAadhaarStatus() async {
+    try {
+      final data = await _client.getJson('/kyc/instant/aadhaar/status/');
+      return InstantKycStatusModel.fromJson(data);
+    } on DioException catch (e) {
+      if (e.error is ApiException) throw e.error!;
+      throw ApiException(e.response?.statusCode ?? 500, _extractMessage(e));
     }
   }
 
