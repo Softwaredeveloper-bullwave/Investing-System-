@@ -46,6 +46,16 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
+        # SMS/email delivery diagnostics. Needs INFO explicitly: the root
+        # logger sits at WARNING, so successful-send lines (which carry the
+        # provider's accept/reject status — e.g. Infobip's PENDING_ACCEPTED
+        # vs REJECTED_NOT_ENOUGH_CREDITS) were being dropped, leaving no way
+        # to tell "provider accepted it" from "provider silently refused it"
+        # when a user reports an OTP never arriving.
+        'bullwave.integrations': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
     },
     'root': {
         'handlers': ['console', 'db'],

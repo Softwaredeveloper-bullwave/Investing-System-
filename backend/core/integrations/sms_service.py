@@ -322,7 +322,17 @@ def _send_infobip(phone: str, body: str) -> None:
             raise SMSError(
                 f'Infobip rejected the message: {status.get("name")} — {status.get("description")}'
             )
-        logger.info('Infobip SMS sent to %s (status=%s)', to, status.get('name') or group)
+        # messageId is logged so a "never arrived" report can be traced to the
+        # exact message in Infobip's portal (Analytics -> Logs), where the
+        # final delivery status lives. HTTP 200 + PENDING_ACCEPTED only means
+        # Infobip took the message, not that the carrier delivered it.
+        logger.info(
+            'Infobip SMS accepted for %s (status=%s, messageId=%s, sender=%s)',
+            to,
+            status.get('name') or group,
+            message.get('messageId'),
+            sender,
+        )
     except SMSError:
         raise
     except Exception:
