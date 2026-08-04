@@ -226,8 +226,17 @@ _twilio_ready = bool(
     and (TWILIO_SERVICE_SID or TWILIO_FROM_NUMBER)
 )
 _msg91_ready = bool(MSG91_AUTH_KEY and MSG91_TEMPLATE_ID)
+INFOBIP_BASE_URL = _clean_env(config('INFOBIP_BASE_URL', default=''))
+INFOBIP_API_KEY = _ascii_env(config('INFOBIP_API_KEY', default=''))
+INFOBIP_SENDER = _clean_env(config('INFOBIP_SENDER', default='BullWave')) or 'BullWave'
+if INFOBIP_BASE_URL and not INFOBIP_BASE_URL.startswith('http'):
+    INFOBIP_BASE_URL = f'https://{INFOBIP_BASE_URL}'
+INFOBIP_BASE_URL = INFOBIP_BASE_URL.rstrip('/')
+_infobip_ready = bool(INFOBIP_BASE_URL and INFOBIP_API_KEY)
 if _sms_provider_raw == 'console':
-    if _twilio_ready:
+    if _infobip_ready:
+        SMS_PROVIDER = 'infobip'
+    elif _twilio_ready:
         SMS_PROVIDER = 'twilio'
     elif _msg91_ready:
         SMS_PROVIDER = 'msg91'

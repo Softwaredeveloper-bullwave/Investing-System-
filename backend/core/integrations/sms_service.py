@@ -1,4 +1,4 @@
-"""SMS OTP delivery — MSG91, Twilio Messages, Twilio Verify, or console (dev)."""
+"""SMS OTP delivery — Infobip, MSG91, Twilio Messages, Twilio Verify, or console (dev)."""
 
 import logging
 import re
@@ -36,9 +36,22 @@ def _msg91_ready() -> bool:
     return bool(auth_key and template_id)
 
 
+def _infobip_ready() -> bool:
+    base_url = (getattr(settings, 'INFOBIP_BASE_URL', '') or '').strip()
+    api_key = (getattr(settings, 'INFOBIP_API_KEY', '') or '').strip()
+    # Guard against the placeholder value from the .env template being left in
+    # by mistake — it would otherwise look "configured" and fail at send time
+    # with a confusing 401 instead of falling back cleanly.
+    if api_key.lower() in ('your_api_key_here', 'your-api-key-here', 'changeme'):
+        return False
+    return bool(base_url and api_key)
+
+
 def resolve_sms_provider() -> str:
-    """Effective SMS provider — settings layer auto-promotes console → twilio/msg91 when keys exist."""
+    """Effective SMS provider — settings layer auto-promotes console → infobip/twilio/msg91 when keys exist."""
     provider = (getattr(settings, 'SMS_PROVIDER', 'console') or 'console').lower().strip()
+    if provider == 'infobip' and not _infobip_ready():
+        return 'console'
     if provider == 'twilio' and not (_twilio_verify_ready() or _twilio_message_ready()):
         return 'console'
     if provider == 'msg91' and not _msg91_ready():
@@ -93,15 +106,27 @@ def sms_config_status() -> dict:
     ready = mode == 'sms' and not twilio_problems
 
     hints = []
-    if explicit == 'twilio' and twilio_problems:
+    if explicit == 'infobip' and not _infobip_ready():
+        api_key = (getattr(settings, 'INFOBIP_API_KEY', '') or '').strip()
+        if not (getattr(settings, 'INFOBIP_BASE_URL', '') or '').strip():
+            hints.append('INFOBIP_BASE_URL is missing in backend/.env')
+        if not api_key:
+            hints.append('INFOBIP_API_KEY is missing in backend/.env')
+        elif api_key.lower() in ('your_api_key_here', 'your-api-key-here', 'changeme'):
+            hints.append(
+                'INFOBIP_API_KEY is still the placeholder value — paste your real Infobip API key.'
+            )
+    elif explicit == 'twilio' and twilio_problems:
         hints.extend(twilio_problems)
     elif mode == 'console':
         hints.append(
-            'OTP is NOT sent to the phone — add Twilio keys to backend/.env (not investingapp/env).'
+            'OTP is NOT sent to the phone — add SMS provider keys to backend/.env '
+            '(not investingapp/env).'
         )
         hints.append(
-            'Required: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_SERVICE_SID (Verify) '
-            'or TWILIO_FROM_NUMBER (Messages). Set SMS_PROVIDER=twilio.'
+            'Infobip: INFOBIP_BASE_URL + INFOBIP_API_KEY (+ INFOBIP_SENDER), SMS_PROVIDER=infobip. '
+            'Twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_SERVICE_SID (Verify) '
+            'or TWILIO_FROM_NUMBER (Messages), SMS_PROVIDER=twilio.'
         )
 
     return {
@@ -110,6 +135,8 @@ def sms_config_status() -> dict:
         'mode': mode,
         'ready': ready,
         'twilio_verify': twilio_verify,
+        'infobip_configured': _infobip_ready(),
+        'infobip_sender': (getattr(settings, 'INFOBIP_SENDER', '') or ''),
         'msg91_configured': _msg91_ready(),
         'twilio_configured': _twilio_verify_ready() or _twilio_message_ready(),
         'twilio_problems': twilio_problems,
@@ -145,7 +172,9 @@ def send_notification_sms(phone: str, message: str) -> None:
     body = (message or '').strip()
     if not phone or not body:
         return
-    if provider == 'twilio' and not uses_twilio_verify():
+    if provider == 'infobip':
+        _send_infobip(phone, body)
+    elif provider == 'twilio' and not uses_twilio_verify():
         _send_twilio_message(phone, body)
     elif provider == 'console':
         msg = f'[BullWave SMS] Phone: {phone} | {body}'
@@ -159,7 +188,9 @@ def send_notification_sms(phone: str, message: str) -> None:
 
 def send_otp_sms(phone: str, otp: str) -> None:
     provider = resolve_sms_provider()
-    if provider == 'msg91':
+    if provider == 'infobip':
+        _send_infobip_otp(phone, otp)
+    elif provider == 'msg91':
         _send_msg91(phone, otp)
     elif provider == 'twilio':
         if uses_twilio_verify():
@@ -221,6 +252,81 @@ def _send_console(phone: str, otp: str) -> None:
 
         print(msg, flush=True)
         sys.stderr.write(msg + '\n')
+
+
+def _send_infobip(phone: str, body: str) -> None:
+    """Send a plain SMS via Infobip's outbound SMS API.
+
+    Docs: POST {base_url}/sms/2/text/advanced with an `App {api_key}` auth
+    header. Infobip returns HTTP 200 with a per-message status object even
+    for some soft failures, so the status group is checked too rather than
+    trusting the HTTP code alone.
+    """
+    base_url = (getattr(settings, 'INFOBIP_BASE_URL', '') or '').strip().rstrip('/')
+    api_key = (getattr(settings, 'INFOBIP_API_KEY', '') or '').strip()
+    sender = (getattr(settings, 'INFOBIP_SENDER', '') or 'BullWave').strip()
+
+    if not base_url or not api_key:
+        raise SMSError('INFOBIP_BASE_URL and INFOBIP_API_KEY are required when SMS_PROVIDER=infobip')
+
+    # Infobip wants the destination without a leading '+'.
+    to = _normalize_phone_e164(phone).lstrip('+')
+    if not to:
+        raise SMSError(f'Could not build a valid destination number from "{phone}"')
+
+    payload = {
+        'messages': [
+            {
+                'destinations': [{'to': to}],
+                'from': sender,
+                'text': body,
+            }
+        ]
+    }
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            response = client.post(
+                f'{base_url}/sms/2/text/advanced',
+                json=payload,
+                headers={
+                    'Authorization': f'App {api_key}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise SMSError(f'Infobip connection failed: {exc}') from exc
+
+    if response.is_error:
+        raise SMSError(f'Infobip error ({response.status_code}): {response.text[:300]}')
+
+    try:
+        data = response.json()
+        message = (data.get('messages') or [{}])[0]
+        status = message.get('status') or {}
+        group = (status.get('groupName') or '').upper()
+        # PENDING / DELIVERED are the healthy groups; REJECTED / UNDELIVERABLE
+        # mean Infobip accepted the HTTP call but will not deliver it.
+        if group in ('REJECTED', 'UNDELIVERABLE'):
+            raise SMSError(
+                f'Infobip rejected the message: {status.get("name")} — {status.get("description")}'
+            )
+        logger.info('Infobip SMS sent to %s (status=%s)', to, status.get('name') or group)
+    except SMSError:
+        raise
+    except Exception:
+        # Unexpected body shape — the HTTP call itself succeeded, so don't
+        # fail the send over a parsing problem.
+        logger.info('Infobip SMS sent to %s (unparsed response)', to)
+
+
+def _send_infobip_otp(phone: str, otp: str) -> None:
+    body = (
+        f'{otp} is your Capital Bullwave verification code. '
+        f'Valid for {settings.OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.'
+    )
+    _send_infobip(phone, body)
 
 
 def _send_msg91(phone: str, otp: str) -> None:
