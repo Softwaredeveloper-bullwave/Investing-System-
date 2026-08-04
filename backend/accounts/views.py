@@ -204,8 +204,25 @@ class SendOTPView(APIView):
         try:
             send_otp_sms(phone, otp)
         except SMSError as exc:
+            # Log the provider's raw response (visible on the admin Logs page)
+            # but never surface it to the user — it's operator diagnostics,
+            # not something they can act on, and it leaks provider/config
+            # details into the app UI. In DEBUG the OTP is still returned
+            # below so local testing isn't dead-ended by a provider outage.
             logger.error('SMS OTP failed for %s: %s', phone, exc)
-            return Response({'detail': str(exc)}, status=503)
+            if not settings.DEBUG:
+                return Response(
+                    {'detail': 'Could not send the code right now. Please try again shortly.'},
+                    status=503,
+                )
+            return Response(
+                {
+                    'success': True,
+                    'message': 'OTP sent successfully.',
+                    'otpMode': 'console',
+                    'devOtp': otp,
+                }
+            )
 
         payload = {
             'success': True,
