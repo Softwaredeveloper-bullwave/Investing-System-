@@ -42,7 +42,12 @@ def _infobip_ready() -> bool:
     # Guard against the placeholder value from the .env template being left in
     # by mistake — it would otherwise look "configured" and fail at send time
     # with a confusing 401 instead of falling back cleanly.
-    if api_key.lower() in ('your_api_key_here', 'your-api-key-here', 'changeme'):
+    if api_key.lower() in (
+        'your_api_key_here',
+        'your-api-key-here',
+        'paste_your_real_key',
+        'changeme',
+    ):
         return False
     return bool(base_url and api_key)
 
@@ -112,7 +117,12 @@ def sms_config_status() -> dict:
             hints.append('INFOBIP_BASE_URL is missing in backend/.env')
         if not api_key:
             hints.append('INFOBIP_API_KEY is missing in backend/.env')
-        elif api_key.lower() in ('your_api_key_here', 'your-api-key-here', 'changeme'):
+        elif api_key.lower() in (
+            'your_api_key_here',
+            'your-api-key-here',
+            'paste_your_real_key',
+            'changeme',
+        ):
             hints.append(
                 'INFOBIP_API_KEY is still the placeholder value — paste your real Infobip API key.'
             )
