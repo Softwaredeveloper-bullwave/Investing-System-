@@ -284,12 +284,15 @@ def _send_infobip(phone: str, body: str) -> None:
     if not to:
         raise SMSError(f'Could not build a valid destination number from "{phone}"')
 
+    # v3 (/sms/3/messages) is what Infobip's own console generates today;
+    # the older v2 (/sms/2/text/advanced) took `from`/`text` at the top level
+    # instead of a nested `content` object.
     payload = {
         'messages': [
             {
                 'destinations': [{'to': to}],
-                'from': sender,
-                'text': body,
+                'sender': sender,
+                'content': {'text': body},
             }
         ]
     }
@@ -297,7 +300,7 @@ def _send_infobip(phone: str, body: str) -> None:
     try:
         with httpx.Client(timeout=15) as client:
             response = client.post(
-                f'{base_url}/sms/2/text/advanced',
+                f'{base_url}/sms/3/messages',
                 json=payload,
                 headers={
                     'Authorization': f'App {api_key}',
