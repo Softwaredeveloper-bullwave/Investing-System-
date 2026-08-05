@@ -239,6 +239,18 @@ _msg91_ready = bool(MSG91_AUTH_KEY and MSG91_TEMPLATE_ID)
 INFOBIP_BASE_URL = _clean_env(config('INFOBIP_BASE_URL', default=''))
 INFOBIP_API_KEY = _ascii_env(config('INFOBIP_API_KEY', default=''))
 INFOBIP_SENDER = _clean_env(config('INFOBIP_SENDER', default='BullWave')) or 'BullWave'
+# WhatsApp OTP delivery via Infobip. Useful in India specifically, where
+# plain SMS requires DLT sender/template registration but WhatsApp does not
+# — it uses Meta-approved message templates instead.
+# OTP_CHANNEL=whatsapp switches OTP delivery to WhatsApp; SMS stays the
+# default so existing deployments are unaffected.
+OTP_CHANNEL = _clean_env(config('OTP_CHANNEL', default='sms')).lower() or 'sms'
+INFOBIP_WHATSAPP_SENDER = _clean_env(config('INFOBIP_WHATSAPP_SENDER', default=''))
+INFOBIP_WHATSAPP_TEMPLATE = _clean_env(config('INFOBIP_WHATSAPP_TEMPLATE', default=''))
+INFOBIP_WHATSAPP_LANGUAGE = _clean_env(config('INFOBIP_WHATSAPP_LANGUAGE', default='en')) or 'en'
+# Authentication-category WhatsApp templates carry a "copy code" button whose
+# parameter must repeat the OTP. Set to False for a plain body-only template.
+INFOBIP_WHATSAPP_HAS_BUTTON = config('INFOBIP_WHATSAPP_HAS_BUTTON', default=True, cast=bool)
 if INFOBIP_BASE_URL and not INFOBIP_BASE_URL.startswith('http'):
     INFOBIP_BASE_URL = f'https://{INFOBIP_BASE_URL}'
 INFOBIP_BASE_URL = INFOBIP_BASE_URL.rstrip('/')

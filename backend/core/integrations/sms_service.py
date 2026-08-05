@@ -69,6 +69,11 @@ def uses_twilio_verify() -> bool:
 
 
 def is_live_sms() -> bool:
+    # WhatsApp is a live delivery channel in its own right — without this the
+    # client would be told 'console' (and shown the dev OTP) even though the
+    # code really was delivered.
+    if uses_whatsapp_otp():
+        return True
     return resolve_sms_provider() != 'console'
 
 
@@ -106,12 +111,20 @@ def sms_config_status() -> dict:
     provider = resolve_sms_provider()
     explicit = (getattr(settings, 'SMS_PROVIDER', 'console') or 'console').lower().strip()
     twilio_verify = uses_twilio_verify()
-    mode = 'sms' if provider != 'console' else 'console'
+    whatsapp_active = uses_whatsapp_otp()
+    mode = 'whatsapp' if whatsapp_active else ('sms' if provider != 'console' else 'console')
     twilio_problems = validate_twilio_config()
-    ready = mode == 'sms' and not twilio_problems
+    ready = whatsapp_active or (mode == 'sms' and not twilio_problems)
 
     hints = []
-    if explicit == 'infobip' and not _infobip_ready():
+    if (getattr(settings, 'OTP_CHANNEL', 'sms') or 'sms').lower().strip() == 'whatsapp' and not whatsapp_active:
+        if not _infobip_ready():
+            hints.append('OTP_CHANNEL=whatsapp needs INFOBIP_BASE_URL and INFOBIP_API_KEY set.')
+        if not (getattr(settings, 'INFOBIP_WHATSAPP_SENDER', '') or '').strip():
+            hints.append('INFOBIP_WHATSAPP_SENDER is missing (your WhatsApp sender number, digits only).')
+        if not (getattr(settings, 'INFOBIP_WHATSAPP_TEMPLATE', '') or '').strip():
+            hints.append('INFOBIP_WHATSAPP_TEMPLATE is missing (the approved template name).')
+    elif explicit == 'infobip' and not _infobip_ready():
         api_key = (getattr(settings, 'INFOBIP_API_KEY', '') or '').strip()
         if not (getattr(settings, 'INFOBIP_BASE_URL', '') or '').strip():
             hints.append('INFOBIP_BASE_URL is missing in backend/.env')
@@ -141,10 +154,15 @@ def sms_config_status() -> dict:
 
     return {
         'explicit_provider': explicit,
-        'provider': 'twilio_verify' if twilio_verify else provider,
+        'provider': 'whatsapp' if uses_whatsapp_otp() else ('twilio_verify' if twilio_verify else provider),
         'mode': mode,
         'ready': ready,
         'twilio_verify': twilio_verify,
+        'otp_channel': (getattr(settings, 'OTP_CHANNEL', 'sms') or 'sms'),
+        'whatsapp_otp_active': uses_whatsapp_otp(),
+        'whatsapp_configured': _infobip_whatsapp_ready(),
+        'whatsapp_sender': (getattr(settings, 'INFOBIP_WHATSAPP_SENDER', '') or ''),
+        'whatsapp_template': (getattr(settings, 'INFOBIP_WHATSAPP_TEMPLATE', '') or ''),
         'infobip_configured': _infobip_ready(),
         'infobip_sender': (getattr(settings, 'INFOBIP_SENDER', '') or ''),
         'msg91_configured': _msg91_ready(),
@@ -197,6 +215,12 @@ def send_notification_sms(phone: str, message: str) -> None:
 
 
 def send_otp_sms(phone: str, otp: str) -> None:
+    # WhatsApp takes precedence when explicitly enabled — in India it avoids
+    # the DLT sender/template registration that plain SMS requires.
+    if uses_whatsapp_otp():
+        _send_infobip_whatsapp_otp(phone, otp)
+        return
+
     provider = resolve_sms_provider()
     if provider == 'infobip':
         _send_infobip_otp(phone, otp)
@@ -350,6 +374,102 @@ def _send_infobip_otp(phone: str, otp: str) -> None:
         f'Valid for {settings.OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.'
     )
     _send_infobip(phone, body)
+
+
+def _infobip_whatsapp_ready() -> bool:
+    sender = (getattr(settings, 'INFOBIP_WHATSAPP_SENDER', '') or '').strip()
+    template = (getattr(settings, 'INFOBIP_WHATSAPP_TEMPLATE', '') or '').strip()
+    return bool(_infobip_ready() and sender and template)
+
+
+def uses_whatsapp_otp() -> bool:
+    channel = (getattr(settings, 'OTP_CHANNEL', 'sms') or 'sms').lower().strip()
+    return channel == 'whatsapp' and _infobip_whatsapp_ready()
+
+
+def _send_infobip_whatsapp_otp(phone: str, otp: str) -> None:
+    """Send the OTP as a WhatsApp template message via Infobip.
+
+    WhatsApp requires a pre-approved template for business-initiated
+    messages (you can't send free-form text unless the user messaged you
+    within the last 24h). Authentication-category templates take the code
+    as a body placeholder, and — if the template was created with the
+    standard "copy code" button — the same code again as a button
+    parameter, which is why INFOBIP_WHATSAPP_HAS_BUTTON exists.
+    """
+    base_url = (getattr(settings, 'INFOBIP_BASE_URL', '') or '').strip().rstrip('/')
+    api_key = (getattr(settings, 'INFOBIP_API_KEY', '') or '').strip()
+    sender = (getattr(settings, 'INFOBIP_WHATSAPP_SENDER', '') or '').strip().lstrip('+')
+    template = (getattr(settings, 'INFOBIP_WHATSAPP_TEMPLATE', '') or '').strip()
+    language = (getattr(settings, 'INFOBIP_WHATSAPP_LANGUAGE', 'en') or 'en').strip()
+    has_button = bool(getattr(settings, 'INFOBIP_WHATSAPP_HAS_BUTTON', True))
+
+    if not (base_url and api_key and sender and template):
+        raise SMSError(
+            'INFOBIP_BASE_URL, INFOBIP_API_KEY, INFOBIP_WHATSAPP_SENDER and '
+            'INFOBIP_WHATSAPP_TEMPLATE are required when OTP_CHANNEL=whatsapp'
+        )
+
+    to = _normalize_phone_e164(phone).lstrip('+')
+    if not to:
+        raise SMSError(f'Could not build a valid destination number from "{phone}"')
+
+    template_data = {'body': {'placeholders': [otp]}}
+    if has_button:
+        template_data['buttons'] = [{'type': 'URL', 'parameter': otp}]
+
+    payload = {
+        'messages': [
+            {
+                'from': sender,
+                'to': to,
+                'content': {
+                    'templateName': template,
+                    'templateData': template_data,
+                    'language': language,
+                },
+            }
+        ]
+    }
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            response = client.post(
+                f'{base_url}/whatsapp/1/message/template',
+                json=payload,
+                headers={
+                    'Authorization': f'App {api_key}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise SMSError(f'Infobip WhatsApp connection failed: {exc}') from exc
+
+    if response.is_error:
+        raise SMSError(f'Infobip WhatsApp error ({response.status_code}): {response.text[:300]}')
+
+    try:
+        data = response.json()
+        message = (data.get('messages') or [{}])[0]
+        status = message.get('status') or {}
+        group = (status.get('groupName') or '').upper()
+        if group in ('REJECTED', 'UNDELIVERABLE'):
+            raise SMSError(
+                f'Infobip rejected the WhatsApp message: {status.get("name")} — '
+                f'{status.get("description")}'
+            )
+        logger.info(
+            'Infobip WhatsApp OTP accepted for %s (status=%s, messageId=%s, template=%s)',
+            to,
+            status.get('name') or group,
+            message.get('messageId'),
+            template,
+        )
+    except SMSError:
+        raise
+    except Exception:
+        logger.info('Infobip WhatsApp OTP accepted for %s (unparsed response)', to)
 
 
 def _send_msg91(phone: str, otp: str) -> None:
