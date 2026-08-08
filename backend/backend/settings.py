@@ -24,7 +24,11 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-pro
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,10.0.2.2').split(',')
 if DEBUG:
-    ALLOWED_HOSTS = ["3.107.192.232", "127.0.0.1","localhost",]
+    # Elastic IP (static — survives instance stop/start, unlike the old
+    # auto-assigned public IPs 3.107.192.232 / 54.252.165.87 which changed
+    # on every restart and broke ALLOWED_HOSTS, the Flutter base URL, the
+    # admin panel, and third-party IP allowlists each time.)
+    ALLOWED_HOSTS = ["54.252.121.203", "127.0.0.1", "localhost"]
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
